@@ -1,0 +1,216 @@
+{
+  "version": "1.0.0",
+  "servers": [
+    {
+      "id": "srv_users_3000",
+      "name": "API Principal (Usuários)",
+      "port": 3000,
+      "prefix": "/api",
+      "cors": true,
+      "enabled": false,
+      "routes": [
+        {
+          "id": "route_get_users",
+          "path": "/users",
+          "method": "GET",
+          "description": "Listar todos os usuários",
+          "activeResponseId": "resp_users_500",
+          "responses": [
+            {
+              "id": "resp_users_200",
+              "name": "200 Sucesso (Lista)",
+              "statusCode": 200,
+              "delay": 80,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Maria Silva\",\n    \"email\": \"maria@example.com\",\n    \"role\": \"admin\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"João Santos\",\n    \"email\": \"joao@example.com\",\n    \"role\": \"developer\"\n  },\n  {\n    \"id\": 3,\n    \"name\": \"Ana Oliveira\",\n    \"email\": \"ana@example.com\",\n    \"role\": \"designer\"\n  }\n]"
+            },
+            {
+              "id": "resp_users_500",
+              "name": "500 Erro Interno",
+              "statusCode": 500,
+              "delay": 200,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"InternalServerError\",\n  \"message\": \"Falha ao buscar usuários no banco de dados\"\n}"
+            },
+            {
+              "id": "resp_1789428107284",
+              "name": "400 Erro",
+              "statusCode": 503,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+            },
+            {
+              "id": "resp_1789428109460",
+              "name": "400 Erro",
+              "statusCode": 400,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_post_users",
+          "path": "/users",
+          "method": "POST",
+          "description": "Criar novo usuário",
+          "activeResponseId": "resp_users_create_201",
+          "responses": [
+            {
+              "id": "resp_users_create_201",
+              "name": "201 Criado com Sucesso",
+              "statusCode": 201,
+              "delay": 150,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"id\": 4,\n  \"name\": \"Carlos Lima\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"developer\",\n  \"createdAt\": \"2026-09-14T20:00:00Z\"\n}"
+            },
+            {
+              "id": "resp_users_create_400",
+              "name": "400 Validação Incorreta",
+              "statusCode": 400,
+              "delay": 50,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"errors\": [\n    \"O campo email é obrigatório e deve ser válido.\"\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_get_user_id",
+          "path": "/users/:id",
+          "method": "GET",
+          "description": "Obter detalhes do usuário por ID",
+          "activeResponseId": "resp_user_get_200",
+          "responses": [
+            {
+              "id": "resp_user_get_200",
+              "name": "200 Usuário Encontrado",
+              "statusCode": 200,
+              "delay": 50,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Item Exemplo A\",\n    \"active\": true\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Item Exemplo B\",\n    \"active\": false\n  }\n]"
+            },
+            {
+              "id": "resp_user_get_404",
+              "name": "404 Não Encontrado",
+              "statusCode": 404,
+              "delay": 40,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"NotFound\",\n  \"message\": \"Usuário com o ID especificado não foi encontrado.\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_put_user_id",
+          "path": "/users/:id",
+          "method": "PUT",
+          "description": "Atualização completa do usuário",
+          "activeResponseId": "resp_user_put_200",
+          "responses": [
+            {
+              "id": "resp_user_put_200",
+              "name": "200 Atualizado",
+              "statusCode": 200,
+              "delay": 100,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Maria Silva Atualizada\",\n  \"email\": \"maria.silva@example.com\",\n  \"updatedAt\": \"2026-09-14T20:05:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_patch_user_id",
+          "path": "/users/:id",
+          "method": "PATCH",
+          "description": "Atualização parcial do usuário",
+          "activeResponseId": "resp_user_patch_200",
+          "responses": [
+            {
+              "id": "resp_user_patch_200",
+              "name": "200 Parcialmente Atualizado",
+              "statusCode": 200,
+              "delay": 70,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"id\": 1,\n  \"role\": \"super-admin\",\n  \"message\": \"Permissões atualizadas com sucesso\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_delete_user_id",
+          "path": "/users/:id",
+          "method": "DELETE",
+          "description": "Excluir usuário",
+          "activeResponseId": "resp_user_delete_204",
+          "responses": [
+            {
+              "id": "resp_user_delete_204",
+              "name": "204 Sem Conteúdo (Excluído)",
+              "statusCode": 204,
+              "delay": 120,
+              "headers": {},
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "srv_auth_3001",
+      "name": "Auth Service",
+      "port": 3001,
+      "prefix": "",
+      "cors": true,
+      "enabled": false,
+      "routes": [
+        {
+          "id": "route_auth_login",
+          "path": "/auth/login",
+          "method": "POST",
+          "description": "Autenticação de usuário",
+          "activeResponseId": "resp_auth_login_200",
+          "responses": [
+            {
+              "id": "resp_auth_login_200",
+              "name": "200 Login Bem Sucedido",
+              "statusCode": 200,
+              "delay": 180,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwibmFtZSI6Ik1hcmlhIFNpbHZhIiwiaWF0IjoxNTE2MjM5MDIyfQ.mock-signature\",\n  \"tokenType\": \"Bearer\",\n  \"expiresIn\": 3600\n}"
+            },
+            {
+              "id": "resp_auth_login_401",
+              "name": "401 Credenciais Inválidas",
+              "statusCode": 401,
+              "delay": 100,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Email ou senha incorretos\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

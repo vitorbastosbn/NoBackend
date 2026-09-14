@@ -1,0 +1,172 @@
+{
+  "name": "nobackend",
+  "displayName": "NoBackend - Mock Server",
+  "description": "Crie e gerencie servidores mock locais com rotas HTTP (GET, POST, PUT, PATCH, DELETE), status codes, latência simulada e CORS direto no VS Code.",
+  "version": "0.1.0",
+  "publisher": "nobackend",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nobackend/nobackend"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Web Development",
+    "Other"
+  ],
+  "keywords": [
+    "mock",
+    "mockoon",
+    "api",
+    "rest",
+    "http",
+    "server",
+    "testing",
+    "json",
+    "insomnia",
+    "postman"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nobackend-sidebar",
+          "title": "NoBackend",
+          "icon": "media/icon-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "nobackend-sidebar": [
+        {
+          "id": "nobackend-servers",
+          "name": "Servidores Mock",
+          "type": "tree"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "nobackend.openDashboard",
+        "title": "Abrir Dashboard",
+        "category": "NoBackend",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "nobackend.addServer",
+        "title": "Adicionar Novo Servidor",
+        "category": "NoBackend",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "nobackend.startServer",
+        "title": "Iniciar Servidor",
+        "category": "NoBackend",
+        "icon": "$(play)"
+      },
+      {
+        "command": "nobackend.stopServer",
+        "title": "Parar Servidor",
+        "category": "NoBackend",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "nobackend.startAll",
+        "title": "Iniciar Todos os Servidores",
+        "category": "NoBackend",
+        "icon": "$(play-all)"
+      },
+      {
+        "command": "nobackend.stopAll",
+        "title": "Parar Todos os Servidores",
+        "category": "NoBackend",
+        "icon": "$(primitive-square)"
+      },
+      {
+        "command": "nobackend.deleteServer",
+        "title": "Excluir Servidor",
+        "category": "NoBackend",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "nobackend.openConfigFile",
+        "title": "Abrir Configuração (.nobackend/servers.json)",
+        "category": "NoBackend",
+        "icon": "$(file-code)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "nobackend.openDashboard",
+          "when": "view == nobackend-servers",
+          "group": "navigation@1"
+        },
+        {
+          "command": "nobackend.addServer",
+          "when": "view == nobackend-servers",
+          "group": "navigation@2"
+        },
+        {
+          "command": "nobackend.startAll",
+          "when": "view == nobackend-servers",
+          "group": "navigation@3"
+        },
+        {
+          "command": "nobackend.stopAll",
+          "when": "view == nobackend-servers",
+          "group": "navigation@4"
+        },
+        {
+          "command": "nobackend.openConfigFile",
+          "when": "view == nobackend-servers",
+          "group": "navigation@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "nobackend.startServer",
+          "when": "view == nobackend-servers && viewItem == server-stopped",
+          "group": "inline@1"
+        },
+        {
+          "command": "nobackend.stopServer",
+          "when": "view == nobackend-servers && viewItem == server-running",
+          "group": "inline@1"
+        },
+        {
+          "command": "nobackend.openDashboard",
+          "when": "view == nobackend-servers",
+          "group": "inline@2"
+        },
+        {
+          "command": "nobackend.deleteServer",
+          "when": "view == nobackend-servers",
+          "group": "inline@3"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js --production",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "test": "node test/verify-server.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.3"
+  }
+}
