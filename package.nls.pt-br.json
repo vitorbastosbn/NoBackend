@@ -1,0 +1,15 @@
+{
+  "extension.description": "Crie e gerencie servidores mock locais com rotas HTTP (GET, POST, PUT, PATCH, DELETE), status codes, latência simulada e CORS direto no VS Code.",
+  "views.mockServers": "Servidores Mock",
+  "command.openDashboard": "Abrir Dashboard",
+  "command.openRoute": "Abrir Configuração da Rota",
+  "command.addServer": "Adicionar Novo Servidor",
+  "command.addRoute": "Adicionar Rota",
+  "command.startServer": "Iniciar Servidor",
+  "command.stopServer": "Parar Servidor",
+  "command.startAll": "Iniciar Todos os Servidores",
+  "command.stopAll": "Parar Todos os Servidores",
+  "command.deleteServer": "Excluir Servidor",
+  "command.deleteRoute": "Excluir Rota",
+  "command.openConfigFile": "Abrir Configuração (.nobackend/servers.json)"
+}

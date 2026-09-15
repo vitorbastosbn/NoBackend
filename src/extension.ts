@@ -9,7 +9,7 @@ let serverManager: ServerManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const outputChannel = vscode.window.createOutputChannel('NoBackend Server');
-  outputChannel.appendLine('⚡ [NoBackend] Inicializado com sucesso. Mocks locais prontos para serem servidos!');
+  outputChannel.appendLine('[NoBackend] ' + vscode.l10n.t('Initialized successfully. Local mock server ready.'));
   context.subscriptions.push(outputChannel);
 
   const configStorage = ConfigStorage.getInstance(context);
@@ -48,32 +48,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }, 50);
     }
   });
-
-  // Status Bar Item
-  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBarItem.command = 'nobackend.openDashboard';
-  statusBarItem.tooltip = 'Clique para abrir o Dashboard do NoBackend';
-  context.subscriptions.push(statusBarItem);
-
-  const updateStatusBar = () => {
-    if (!serverManager) return;
-    const all = serverManager.getAllStatus();
-    const runningCount = all.filter((s) => s.running).length;
-    if (runningCount > 0) {
-      statusBarItem.text = `$(server) NoBackend: ${runningCount} ativo(s)`;
-      statusBarItem.backgroundColor = undefined;
-      statusBarItem.show();
-    } else if (all.length > 0) {
-      statusBarItem.text = `$(server) NoBackend: parado`;
-      statusBarItem.backgroundColor = undefined;
-      statusBarItem.show();
-    } else {
-      statusBarItem.hide();
-    }
-  };
-
-  serverManager.onDidChangeStatus(() => updateStatusBar());
-  updateStatusBar();
 
   // Register Commands
   context.subscriptions.push(
@@ -164,7 +138,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       if (!serverId) {
         if (config.servers.length === 0) {
-          vscode.window.showWarningMessage('Nenhum servidor mock encontrado. Crie um servidor primeiro.');
+          vscode.window.showWarningMessage(vscode.l10n.t('No mock servers found. Create a server first.'));
           return;
         }
         if (config.servers.length === 1) {
@@ -177,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
               detail: `${s.routes.length} rota(s)`,
               serverId: s.id
             })),
-            { placeHolder: 'Selecione o servidor para adicionar a rota' }
+            { placeHolder: vscode.l10n.t('Select the server to add the route') }
           );
           if (!pick) return;
           serverId = pick.serverId;
@@ -186,21 +160,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       const server = config.servers.find((s) => s.id === serverId);
       if (!server) {
-        vscode.window.showErrorMessage('Servidor mock não encontrado.');
+        vscode.window.showErrorMessage(vscode.l10n.t('Mock server not found.'));
         return;
       }
 
       const routeId = 'route_' + Date.now();
       const respId = 'resp_' + Date.now();
 
-      let defaultPath = '/nova-rota';
+      let defaultPath = '/new-route';
       const existingPaths = new Set(server.routes.map((r) => r.path));
       if (existingPaths.has(defaultPath)) {
-        let counter = 2;
-        while (existingPaths.has(`/nova-rota-${counter}`)) {
+        let counter = 1;
+        while (existingPaths.has(`/new-route-${counter}`)) {
           counter++;
         }
-        defaultPath = `/nova-rota-${counter}`;
+        defaultPath = `/new-route-${counter}`;
       }
 
       const newRoute: RouteConfig = {
@@ -217,11 +191,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         responses: [
           {
             id: respId,
-            name: 'Sucesso',
+            name: 'Success',
             statusCode: 200,
             delay: 0,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: 'Mock gerado com sucesso!' }, null, 2)
+            body: JSON.stringify({ message: 'Mock response' }, null, 2)
           }
         ]
       };
@@ -255,18 +229,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const server = config.servers.find((s) => s.id === serverId);
       if (!server) return;
       const confirm = await vscode.window.showWarningMessage(
-        `Tem certeza de que deseja excluir o servidor mock "${server.name}"?`,
+        vscode.l10n.t('Are you sure you want to delete mock server "{0}"?', server.name),
         { modal: true },
-        'Sim, excluir'
+        vscode.l10n.t('Yes, delete')
       );
-      if (confirm === 'Sim, excluir') {
+      if (confirm === vscode.l10n.t('Yes, delete')) {
         if (serverManager) {
           await serverManager.stopServer(server.id);
         }
         config.servers = config.servers.filter((s) => s.id !== server.id);
         DashboardPanel.closeIfServerOpen(server.id);
         await configStorage.saveConfig(config);
-        vscode.window.showInformationMessage(`Servidor "${server.name}" excluído.`);
+        vscode.window.showInformationMessage(vscode.l10n.t('Server "{0}" deleted.', server.name));
       }
     })
   );
@@ -274,12 +248,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('nobackend.deleteRoute', async (item?: RouteTreeItem) => {
       if (!item || !(item instanceof RouteTreeItem)) return;
+      const routeLabel = `${item.route.method} ${item.route.path}`;
       const confirm = await vscode.window.showWarningMessage(
-        `Tem certeza de que deseja excluir a rota "${item.route.method} ${item.route.path}"?`,
+        vscode.l10n.t('Are you sure you want to delete route "{0}"?', routeLabel),
         { modal: true },
-        'Sim, excluir'
+        vscode.l10n.t('Yes, delete')
       );
-      if (confirm === 'Sim, excluir') {
+      if (confirm === vscode.l10n.t('Yes, delete')) {
         const config = await configStorage.loadConfig();
         const server = config.servers.find((s) => s.id === item.server.id);
         if (server) {
@@ -287,7 +262,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           // If the route screen is currently open, close it together
           DashboardPanel.closeIfRouteOpen(item.route.id);
           await configStorage.saveConfig(config);
-          vscode.window.showInformationMessage(`Rota "${item.route.method} ${item.route.path}" excluída.`);
+          vscode.window.showInformationMessage(vscode.l10n.t('Route "{0}" deleted.', routeLabel));
         }
       }
     })

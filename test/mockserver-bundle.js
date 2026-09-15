@@ -95,7 +95,7 @@ var MockServer = class {
         this.isRunning = true;
         this.lastStarted = Date.now();
         this.lastError = void 0;
-        this.log(`\u{1F7E2} Servidor iniciado em http://localhost:${this.config.port}${this.config.prefix || ""}`);
+        this.log(`[START] Server running at http://localhost:${this.config.port}${this.config.prefix || ""}`);
         this.onStatusChangeCallback();
         resolve();
       });
@@ -111,7 +111,7 @@ var MockServer = class {
       this.server?.close(() => {
         this.server = void 0;
         this.isRunning = false;
-        this.log(`\u26AA Servidor parado (Porta ${this.config.port})`);
+        this.log(`[STOP] Server stopped (Port ${this.config.port})`);
         this.onStatusChangeCallback();
         resolve();
       });
@@ -161,7 +161,7 @@ var MockServer = class {
           2
         );
         if (isCriteriaFailure) {
-          this.log(`\u26A0\uFE0F [404] [${method}] ${rawUrl} - ${matchResult.failedReason}`);
+          this.log(`[WARN] [404] [${method}] ${rawUrl} - ${matchResult.failedReason}`);
         }
         res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
         res.end(notFoundBody);
@@ -542,9 +542,9 @@ var MockServer = class {
   }
   logRequest(method, path, statusCode, durationMs) {
     const time = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-    const statusEmoji = statusCode >= 200 && statusCode < 300 ? "\u2705" : statusCode >= 400 && statusCode < 500 ? "\u26A0\uFE0F" : "\u274C";
+    const statusTag = statusCode >= 200 && statusCode < 300 ? "[OK]" : statusCode >= 400 && statusCode < 500 ? "[WARN]" : "[ERROR]";
     this.outputChannel.appendLine(
-      `[${time}] [:${this.config.port}] ${method.padEnd(6)} ${path} -> ${statusEmoji} ${statusCode} (${durationMs}ms)`
+      `[${time}] [:${this.config.port}] ${method.padEnd(6)} ${path} -> ${statusTag} ${statusCode} (${durationMs}ms)`
     );
   }
 };

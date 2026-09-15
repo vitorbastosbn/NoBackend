@@ -22,13 +22,16 @@ export class ServerTreeItem extends vscode.TreeItem {
       this.iconPath = new vscode.ThemeIcon('circle-outline', new vscode.ThemeColor('disabledForeground'));
     }
 
+    const statusLabel = isRunning ? vscode.l10n.t('Running') : vscode.l10n.t('Stopped');
+    const corsLabel = server.cors ? vscode.l10n.t('Enabled') : vscode.l10n.t('Disabled');
+
     this.tooltip = new vscode.MarkdownString(
       `### ${server.name}\n` +
-      `- **Porta:** \`${server.port}\`\n` +
-      `- **Status:** ${isRunning ? '🟢 Rodando' : '⚪ Parado'}\n` +
-      `- **CORS:** ${server.cors ? 'Habilitado' : 'Desabilitado'}\n` +
-      `- **Prefixo:** \`${server.prefix || '/'}\`\n` +
-      `- **Total de Rotas:** ${server.routes.length}`
+      `- **${vscode.l10n.t('Port')}:** \`${server.port}\`\n` +
+      `- **${vscode.l10n.t('Status')}:** ${statusLabel}\n` +
+      `- **CORS:** ${corsLabel}\n` +
+      `- **${vscode.l10n.t('Prefix')}:** \`${server.prefix || '/'}\`\n` +
+      `- **${vscode.l10n.t('Total Routes')}:** ${server.routes.length}`
     );
   }
 }
@@ -71,15 +74,15 @@ export class RouteTreeItem extends vscode.TreeItem {
 
     this.tooltip = new vscode.MarkdownString(
       `**${route.method}** \`${route.path}\`\n\n` +
-      `- **Status retornado:** \`${activeResponse?.statusCode || 200}\`\n` +
-      `- **Delay:** ${activeResponse?.delay || 0}ms\n` +
-      `- **Variantes configuradas:** ${route.responses.length}`
+      `- **${vscode.l10n.t('Returned status')}:** \`${activeResponse?.statusCode || 200}\`\n` +
+      `- **${vscode.l10n.t('Latency')}:** ${activeResponse?.delay || 0}ms\n` +
+      `- **${vscode.l10n.t('Configured variants')}:** ${route.responses.length}`
     );
 
     // Clicking a route opens the screen with information of only that route
     this.command = {
       command: 'nobackend.openRoute',
-      title: 'Abrir Configuração da Rota',
+      title: vscode.l10n.t('Open Route Configuration'),
       arguments: [server.id, route.id]
     };
   }

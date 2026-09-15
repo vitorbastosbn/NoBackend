@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigStorage } from '../storage/ConfigStorage';
-import { NoBackendConfigFile, ServerConfig, ServerStatusInfo } from '../models/types';
+import { NoBackendConfigFile, ServerStatusInfo } from '../models/types';
 import { MockServer } from './MockServer';
 
 export class ServerManager {
@@ -71,10 +71,14 @@ export class ServerManager {
 
     try {
       await server.start();
-      vscode.window.showInformationMessage(`Servidor "${server.getName()}" rodando na porta ${server.getPort()}!`);
+      vscode.window.showInformationMessage(
+        vscode.l10n.t('Server "{0}" running on port {1}.', server.getName(), server.getPort().toString())
+      );
       this.updateServerEnabledState(serverId, true);
     } catch (err: any) {
-      vscode.window.showErrorMessage(`Não foi possível iniciar "${server.getName()}" na porta ${server.getPort()}: ${err.message || err}`);
+      vscode.window.showErrorMessage(
+        vscode.l10n.t('Could not start "{0}" on port {1}: {2}', server.getName(), server.getPort().toString(), err.message || String(err))
+      );
       throw err;
     }
   }
@@ -86,7 +90,9 @@ export class ServerManager {
     }
 
     await server.stop();
-    vscode.window.showInformationMessage(`Servidor "${server.getName()}" foi parado.`);
+    vscode.window.showInformationMessage(
+      vscode.l10n.t('Server "{0}" stopped.', server.getName())
+    );
     this.updateServerEnabledState(serverId, false);
   }
 
@@ -117,7 +123,9 @@ export class ServerManager {
       }
     }
     if (startedCount > 0) {
-      vscode.window.showInformationMessage(`${startedCount} servidor(es) NoBackend iniciado(s).`);
+      vscode.window.showInformationMessage(
+        vscode.l10n.t('{0} NoBackend server(s) started.', startedCount.toString())
+      );
     }
   }
 
@@ -128,7 +136,9 @@ export class ServerManager {
         this.updateServerEnabledState(server.getId(), false);
       }
     }
-    vscode.window.showInformationMessage('Todos os servidores NoBackend foram parados.');
+    vscode.window.showInformationMessage(
+      vscode.l10n.t('All NoBackend servers stopped.')
+    );
   }
 
   public getStatus(serverId: string): ServerStatusInfo | undefined {

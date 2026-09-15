@@ -3,22 +3,22 @@
   "servers": [
     {
       "id": "srv_users_3000",
-      "name": "API Principal (Usuários)",
+      "name": "API Principal",
       "port": 3000,
       "prefix": "/api",
       "cors": true,
-      "enabled": true,
+      "enabled": false,
       "routes": [
         {
           "id": "route_get_users",
           "path": "/users",
           "method": "GET",
           "description": "Listar todos os usuários",
-          "activeResponseId": "resp_users_500",
+          "activeResponseId": "resp_users_200",
           "responses": [
             {
               "id": "resp_users_200",
-              "name": "200 Sucesso (Lista)",
+              "name": "200 Sucesso",
               "statusCode": 200,
               "delay": 80,
               "headers": {
@@ -35,56 +35,6 @@
                 "Content-Type": "application/json"
               },
               "body": "{\n  \"error\": \"InternalServerError\",\n  \"message\": \"Falha ao buscar usuários no banco de dados\"\n}"
-            },
-            {
-              "id": "resp_1789428107284",
-              "name": "400 Erro",
-              "statusCode": 503,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
-            },
-            {
-              "id": "resp_1789428109460",
-              "name": "400 Erro",
-              "statusCode": 400,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
-            },
-            {
-              "id": "resp_1789435307227",
-              "name": "400 Bad Request",
-              "statusCode": 400,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
-            },
-            {
-              "id": "resp_1789435308331",
-              "name": "400 Bad Request",
-              "statusCode": 400,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
-            },
-            {
-              "id": "resp_1789435309153",
-              "name": "400 Bad Request",
-              "statusCode": 400,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
             }
           ]
         },
@@ -119,7 +69,7 @@
           "request": {
             "headers": {},
             "queryParams": {},
-            "body": ""
+            "body": "{\n  \"name\": \"Carlos Lima\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"developer\"\n}"
           }
         },
         {
@@ -131,33 +81,23 @@
           "responses": [
             {
               "id": "resp_user_get_200",
-              "name": "Usuário Encontrado",
+              "name": "200 Usuário Encontrado",
               "statusCode": 200,
               "delay": 50,
               "headers": {
                 "Content-Type": "application/json"
               },
-              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Item Exemplo A\",\n    \"active\": true\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Item Exemplo B\",\n    \"active\": false\n  }\n]"
+              "body": "{\n  \"id\": \":id\",\n  \"name\": \"Maria Silva\",\n  \"email\": \"maria@example.com\",\n  \"role\": \"admin\"\n}"
             },
             {
               "id": "resp_user_get_404",
-              "name": "Não Encontrado",
+              "name": "404 Não Encontrado",
               "statusCode": 404,
               "delay": 40,
               "headers": {
                 "Content-Type": "application/json"
               },
-              "body": "{\n  \"error\": \"NotFound\",\n  \"message\": \"Usuário com o ID especificado não foi encontrado.\"\n}"
-            },
-            {
-              "id": "resp_1789428979687",
-              "name": "Agora é o não encontrado em outro",
-              "statusCode": 404,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+              "body": "{\n  \"error\": \"NotFound\",\n  \"message\": \"Usuário com ID :id não foi encontrado.\"\n}"
             }
           ]
         },
@@ -176,7 +116,7 @@
               "headers": {
                 "Content-Type": "application/json"
               },
-              "body": "{\n  \"id\": 1,\n  \"name\": \"Maria Silva Atualizada\",\n  \"email\": \"maria.silva@example.com\",\n  \"updatedAt\": \"2026-09-14T20:05:00Z\"\n}"
+              "body": "{\n  \"id\": \":id\",\n  \"name\": \"Maria Silva Atualizada\",\n  \"email\": \"maria.silva@example.com\",\n  \"updatedAt\": \"2026-09-14T20:05:00Z\"\n}"
             }
           ]
         },
@@ -195,7 +135,7 @@
               "headers": {
                 "Content-Type": "application/json"
               },
-              "body": "{\n  \"id\": 1,\n  \"role\": \"super-admin\",\n  \"message\": \"Permissões atualizadas com sucesso\"\n}"
+              "body": "{\n  \"id\": \":id\",\n  \"role\": \"super-admin\",\n  \"message\": \"Permissões atualizadas com sucesso\"\n}"
             }
           ]
         },
@@ -208,35 +148,11 @@
           "responses": [
             {
               "id": "resp_user_delete_204",
-              "name": "204 Sem Conteúdo (Excluído)",
+              "name": "204 Sem Conteúdo",
               "statusCode": 204,
               "delay": 120,
               "headers": {},
               "body": ""
-            }
-          ]
-        },
-        {
-          "id": "route_1789438050343",
-          "path": "/nova-rota",
-          "method": "GET",
-          "description": "",
-          "request": {
-            "headers": {},
-            "queryParams": {},
-            "body": ""
-          },
-          "activeResponseId": "resp_1789438050343",
-          "responses": [
-            {
-              "id": "resp_1789438050343",
-              "name": "Sucesso",
-              "statusCode": 200,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"message\": \"Mock gerado com sucesso!\"\n}"
             }
           ]
         }
@@ -255,7 +171,7 @@
           "path": "/auth/login",
           "method": "POST",
           "description": "Autenticação de usuário",
-          "activeResponseId": "resp_auth_login_401",
+          "activeResponseId": "resp_auth_login_200",
           "responses": [
             {
               "id": "resp_auth_login_200",
@@ -281,7 +197,7 @@
           "request": {
             "headers": {},
             "queryParams": {},
-            "body": "{\n  \"name\": \"João Silva\",\n  \"email\": \"joao.silva@exemplo.com\",\n  \"role\": \"developer\"\n}"
+            "body": "{\n  \"email\": \"maria@example.com\",\n  \"password\": \"secret123\"\n}"
           }
         }
       ]

@@ -1,6 +1,12 @@
 // Acquire VS Code API
 const vscode = acquireVsCodeApi();
 
+// Localization helper
+const i18n = (typeof window !== 'undefined' && window.NOBACKEND_I18N) ? window.NOBACKEND_I18N : {};
+function t(key, fallback) {
+  return (i18n && i18n[key]) ? i18n[key] : (fallback || '');
+}
+
 const HTTP_STATUS_DESCRIPTIONS = {
   200: 'OK',
   201: 'Created',
@@ -46,7 +52,6 @@ let state = {
   selectedResponseId: null,
   activeEditorTab: 'responses', // 'request' | 'responses'
   viewMode: 'server', // 'server' (routes + editor) or 'route' (editor only)
-  filterQuery: '',
   isDirty: false,
   // Component internal row models allowing multiple empty entries
   responseHeadersList: [],
@@ -65,12 +70,6 @@ const el = {
 
   // Layout & Columns
   mainLayout: document.getElementById('main-layout'),
-  colRoutes: document.getElementById('col-routes'),
-  routesColTitle: document.getElementById('routes-col-title'),
-  routesList: document.getElementById('routes-list'),
-  routesCountBadge: document.getElementById('routes-count-badge'),
-  inputRouteFilter: document.getElementById('input-route-filter'),
-  btnAddRoute: document.getElementById('btn-add-route'),
 
   // New Server Screen
   newServerScreen: document.getElementById('new-server-screen'),
@@ -148,6 +147,7 @@ const el = {
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
+  applyTranslations();
   vscode.postMessage({ type: 'ready' });
 });
 
@@ -170,6 +170,7 @@ window.addEventListener('message', (event) => {
         }
       }
       applyViewMode();
+      applyTranslations();
       renderAll();
 
       if (msg.openNewServerModal || msg.openNewServerScreen) {
@@ -231,7 +232,7 @@ window.addEventListener('message', (event) => {
     case 'saveSuccess':
       state.isDirty = false;
       updateSaveIndicator();
-      showTransientToast('Salvo com sucesso!');
+      showTransientToast(t('configSaved', 'Configurações salvas com sucesso!'));
       break;
   }
 });
@@ -239,10 +240,8 @@ window.addEventListener('message', (event) => {
 function applyViewMode() {
   if (state.viewMode === 'route') {
     el.mainLayout.classList.add('route-only');
-    if (el.colRoutes) el.colRoutes.classList.add('hidden');
   } else {
     el.mainLayout.classList.remove('route-only');
-    if (el.colRoutes) el.colRoutes.classList.add('hidden');
   }
 }
 
@@ -454,7 +453,7 @@ function setupEventListeners() {
           markDirty();
         }
       } catch {
-        vscode.postMessage({ type: 'notify', level: 'warning', text: 'Não foi possível formatar: JSON contém erros de sintaxe.' });
+        vscode.postMessage({ type: 'notify', level: 'warning', text: t('formatError', 'Não foi possível formatar: JSON contém erros de sintaxe.') });
       }
     });
   }
@@ -462,8 +461,8 @@ function setupEventListeners() {
   if (el.btnTemplateReqObject) {
     el.btnTemplateReqObject.addEventListener('click', () => {
       const sample = JSON.stringify({
-        name: "João Silva",
-        email: "joao.silva@exemplo.com",
+        name: "John Doe",
+        email: "john.doe@example.com",
         role: "developer"
       }, null, 2);
       el.reqBodyTextarea.value = sample;
@@ -624,14 +623,14 @@ function setupEventListeners() {
         markDirty();
       }
     } catch {
-      vscode.postMessage({ type: 'notify', level: 'warning', text: 'Não foi possível formatar: JSON contém erros de sintaxe.' });
+      vscode.postMessage({ type: 'notify', level: 'warning', text: t('formatError', 'Não foi possível formatar: JSON contém erros de sintaxe.') });
     }
   });
 
   el.btnTemplateArray.addEventListener('click', () => {
     const sample = JSON.stringify([
-      { id: 1, name: "Item Exemplo A", active: true },
-      { id: 2, name: "Item Exemplo B", active: false }
+      { id: 1, name: "Example Item A", active: true },
+      { id: 2, name: "Example Item B", active: false }
     ], null, 2);
     setBodyTemplate(sample);
   });
@@ -639,7 +638,7 @@ function setupEventListeners() {
   el.btnTemplateObject.addEventListener('click', () => {
     const sample = JSON.stringify({
       id: 1,
-      message: "Operação executada com sucesso",
+      message: "Operation executed successfully",
       timestamp: new Date().toISOString()
     }, null, 2);
     setBodyTemplate(sample);
@@ -716,16 +715,16 @@ function validateJson(text, indicatorEl) {
   if (!indicatorEl) return;
   const trimmed = (text || '').trim();
   if (!trimmed) {
-    indicatorEl.textContent = 'Vazio';
+    indicatorEl.textContent = t('empty', 'Vazio');
     indicatorEl.className = 'valid-tag';
     return;
   }
   try {
     JSON.parse(trimmed);
-    indicatorEl.textContent = 'JSON Válido';
+    indicatorEl.textContent = t('validJson', 'JSON Válido');
     indicatorEl.className = 'valid-tag valid';
   } catch (err) {
-    indicatorEl.textContent = 'JSON Inválido';
+    indicatorEl.textContent = t('invalidJson', 'JSON Inválido');
     indicatorEl.className = 'valid-tag invalid';
   }
 }
@@ -741,7 +740,7 @@ function renderAll() {
 function renderHeader() {
   const server = getSelectedServer();
   if (!server) {
-    if (el.topServerBadge) el.topServerBadge.textContent = 'Nenhum servidor';
+    if (el.topServerBadge) el.topServerBadge.textContent = t('noServer', 'Nenhum servidor');
     return;
   }
 
@@ -755,6 +754,7 @@ function renderHeader() {
 }
 
 function renderRoutesList() {
+  if (!el.routesList) return;
   const server = getSelectedServer();
   el.routesList.innerHTML = '';
 
@@ -1257,7 +1257,7 @@ function handleAddRoute() {
   const respId = 'resp_' + Date.now();
   const newRoute = {
     id: newId,
-    path: '/nova-rota',
+    path: '/new-route',
     method: 'GET',
     description: '',
     request: {
@@ -1269,11 +1269,11 @@ function handleAddRoute() {
     responses: [
       {
         id: respId,
-        name: 'Sucesso',
+        name: 'Success',
         statusCode: 200,
         delay: 0,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Mock gerado com sucesso!" }, null, 2)
+        body: JSON.stringify({ message: "Mock generated successfully!" }, null, 2)
       }
     ]
   };
@@ -1295,11 +1295,11 @@ function handleAddResponse() {
   const respId = 'resp_' + Date.now();
   const newResp = {
     id: respId,
-    name: 'Erro de Requisição',
+    name: 'Bad Request',
     statusCode: 400,
     delay: 0,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ error: "BadRequest", message: "Exemplo de erro simulado" }, null, 2)
+    body: JSON.stringify({ error: "BadRequest", message: "Simulated error example" }, null, 2)
   };
 
   route.responses.push(newResp);
@@ -1361,11 +1361,11 @@ function updateSaveIndicator() {
   if (state.isDirty) {
     if (el.btnSaveAll) el.btnSaveAll.classList.add('dirty');
     if (el.saveStatusIndicator) el.saveStatusIndicator.className = 'save-status unsaved';
-    if (el.saveStatusText) el.saveStatusText.textContent = 'Não salvo (Ctrl+S)';
+    if (el.saveStatusText) el.saveStatusText.textContent = t('unsaved', 'Não salvo (Ctrl+S)');
   } else {
     if (el.btnSaveAll) el.btnSaveAll.classList.remove('dirty');
     if (el.saveStatusIndicator) el.saveStatusIndicator.className = 'save-status saved';
-    if (el.saveStatusText) el.saveStatusText.textContent = 'Salvo';
+    if (el.saveStatusText) el.saveStatusText.textContent = t('saved', 'Salvo');
   }
 }
 
@@ -1405,7 +1405,7 @@ function openNewServerScreen() {
     nextPort++;
   }
 
-  el.modalServerName.value = 'Novo Servidor';
+  el.modalServerName.value = t('newServer', 'Novo Servidor');
   el.modalServerPort.value = nextPort;
   el.modalServerPrefix.value = '/api';
   el.modalServerCors.checked = true;
@@ -1437,7 +1437,7 @@ function closeNewServerScreen() {
 }
 
 function handleSaveServerScreen() {
-  const name = (el.modalServerName.value || '').trim() || 'Novo Servidor';
+  const name = (el.modalServerName.value || '').trim() || t('newServer', 'Novo Servidor');
   const port = parseInt(el.modalServerPort.value, 10);
   let prefix = (el.modalServerPrefix.value || '').trim();
   const cors = el.modalServerCors.checked;
@@ -1457,7 +1457,7 @@ function handleSaveServerScreen() {
     vscode.postMessage({
       type: 'notify',
       level: 'warning',
-      text: `A porta ${port} já está sendo utilizada pelo servidor "${portConflict.name}". Escolha outra porta.`
+      text: t('portInUse', 'A porta {port} já está sendo utilizada pelo servidor "{name}". Escolha outra porta.').replace('{port}', port).replace('{name}', portConflict.name)
     });
     el.modalServerPort.focus();
     return;
@@ -1491,4 +1491,142 @@ function handleSaveServerScreen() {
     name,
     port
   });
+}
+
+function applyTranslations() {
+  if (el.topServerBadge && !state.selectedServerId) el.topServerBadge.textContent = t('server', 'Servidor');
+  if (el.saveStatusText) el.saveStatusText.textContent = state.isDirty ? t('unsaved', 'Não salvo (Ctrl+S)') : t('saved', 'Salvo');
+  if (el.btnSaveAll) {
+    const span = el.btnSaveAll.querySelector('span');
+    if (span) span.textContent = t('save', 'Salvar');
+    el.btnSaveAll.title = t('saveChangesTitle', 'Salvar alterações no disco (Ctrl+S)');
+  }
+
+  // Route Meta Panel
+  const methodLabel = document.querySelector('.method-group label');
+  if (methodLabel) methodLabel.textContent = t('httpMethod', 'Verbo HTTP');
+  const pathLabel = document.querySelector('.path-group label');
+  if (pathLabel) pathLabel.textContent = t('routePath', 'Caminho da Rota (ex: /users/:id)');
+  if (el.btnCopyUrl) {
+    el.btnCopyUrl.title = t('copyUrlTitle', 'Copiar URL completa');
+    const span = el.btnCopyUrl.querySelector('span');
+    if (span) span.textContent = t('copyUrl', 'Copiar URL');
+  }
+  if (el.btnCopyCurl) {
+    el.btnCopyCurl.title = t('curlTitle', 'Copiar comando cURL completo');
+    const span = el.btnCopyCurl.querySelector('span');
+    if (span) span.textContent = t('curl', 'cURL');
+  }
+
+  // Segmented Navigation
+  if (el.tabNavRequest) {
+    const span = el.tabNavRequest.querySelector('span');
+    if (span) span.textContent = t('requestTab', 'Requisição (Request)');
+  }
+  if (el.tabNavResponses) {
+    const span = el.tabNavResponses.querySelector('span');
+    if (span) span.textContent = t('responsesTab', 'Respostas (Responses)');
+  }
+  const previewLabel = document.querySelector('.url-preview-label');
+  if (previewLabel) previewLabel.textContent = t('endpoint', 'Endpoint:');
+
+  // Request Section
+  const pathParamsLabel = document.querySelector('#path-params-container label');
+  if (pathParamsLabel) pathParamsLabel.textContent = t('pathParameters', 'Parâmetros de Rota (Path Parameters):');
+  const reqQueryTitle = document.querySelector('#req-query-head .accordion-title');
+  if (reqQueryTitle) reqQueryTitle.textContent = t('expectedQueryParams', 'Query Parameters esperados');
+  if (el.btnAddQueryParam) {
+    const span = el.btnAddQueryParam.querySelector('span');
+    if (span) span.textContent = t('addParameter', 'Adicionar Parâmetro');
+  }
+  const reqHeadersTitle = document.querySelector('#req-headers-head .accordion-title');
+  if (reqHeadersTitle) reqHeadersTitle.textContent = t('requestHeaders', 'Headers da Requisição');
+  if (el.btnAddReqHeader) {
+    const span = el.btnAddReqHeader.querySelector('span');
+    if (span) span.textContent = t('addHeader', 'Adicionar Header');
+  }
+  const reqBodyLabel = document.querySelector('#section-request .body-header label');
+  if (reqBodyLabel) reqBodyLabel.textContent = t('expectedRequestBody', 'Corpo Esperado da Requisição (Payload)');
+  if (el.btnFormatReqJson) {
+    const span = el.btnFormatReqJson.querySelector('span');
+    if (span) span.textContent = t('formatJson', 'Formatar JSON');
+  }
+  if (el.btnTemplateReqObject) el.btnTemplateReqObject.textContent = t('objectExample', 'Exemplo Objeto');
+  if (el.btnClearReqBody) el.btnClearReqBody.textContent = t('clear', 'Limpar');
+  if (el.reqBodyTextarea) el.reqBodyTextarea.placeholder = t('requestBodyPlaceholder', 'Exemplo do JSON esperado na requisição enviada pelo cliente...');
+
+  // Responses Section
+  const respSubhead = document.querySelector('.section-subhead h4');
+  if (respSubhead) respSubhead.textContent = t('routeResponses', 'Respostas da Rota');
+  if (el.btnAddResponse) {
+    const span = el.btnAddResponse.querySelector('span');
+    if (span) span.textContent = t('newResponse', 'Nova Resposta');
+  }
+  const idLabel = document.querySelector('.response-title-edit label');
+  if (idLabel) idLabel.textContent = t('identification', 'Identificação:');
+  if (el.respNameInput) el.respNameInput.placeholder = t('responseNamePlaceholder', 'ex: Sucesso');
+  if (el.btnSetActiveResp) el.btnSetActiveResp.title = t('setActiveResponseTitle', 'Definir como resposta ativa');
+  if (el.btnDuplicateResponse) el.btnDuplicateResponse.title = t('duplicateResponseTitle', 'Duplicar esta resposta');
+  if (el.btnDeleteResponse) el.btnDeleteResponse.title = t('deleteResponseTitle', 'Excluir esta resposta');
+  const statusLabel = document.querySelector('.status-field label');
+  if (statusLabel) statusLabel.textContent = t('statusCode', 'Status Code:');
+  const delayLabel = document.querySelector('.delay-field label');
+  if (delayLabel) delayLabel.textContent = t('simulatedLatency', 'Latência Simulada (Delay):');
+  const customOpt = el.respStatusQuick ? el.respStatusQuick.querySelector('option[value="custom"]') : null;
+  if (customOpt) customOpt.textContent = t('customStatus', 'Outro...');
+  if (el.respStatusCode) el.respStatusCode.placeholder = t('customStatusPlaceholder', 'Código (ex: 418)');
+  const respHeadersTitle = document.querySelector('#headers-head .accordion-title');
+  if (respHeadersTitle) respHeadersTitle.textContent = t('responseHeaders', 'Headers de Resposta');
+  if (el.btnAddHeader) {
+    const span = el.btnAddHeader.querySelector('span');
+    if (span) span.textContent = t('addHeader', 'Adicionar Header');
+  }
+  const respBodyLabel = document.querySelector('#section-responses .body-header label');
+  if (respBodyLabel) respBodyLabel.textContent = t('responseBody', 'Corpo da Resposta (Payload)');
+  if (el.btnFormatJson) {
+    const span = el.btnFormatJson.querySelector('span');
+    if (span) span.textContent = t('formatJson', 'Formatar JSON');
+  }
+  if (el.btnTemplateArray) el.btnTemplateArray.textContent = t('arrayExample', 'Exemplo Lista');
+  if (el.btnTemplateObject) el.btnTemplateObject.textContent = t('objectExample', 'Exemplo Objeto');
+  if (el.btnClearRespBody) el.btnClearRespBody.textContent = t('clear', 'Limpar');
+  if (el.respBodyTextarea) el.respBodyTextarea.placeholder = t('responseBodyPlaceholder', 'Digite o JSON ou texto retornado...');
+
+  // Empty state
+  const emptyH3 = document.querySelector('#editor-empty h3');
+  if (emptyH3) emptyH3.textContent = t('noRouteSelected', 'Nenhuma rota selecionada');
+  const emptyP = document.querySelector('#editor-empty p');
+  if (emptyP) emptyP.textContent = t('noRouteSelectedDesc', 'Crie ou selecione uma rota na barra lateral para começar a configurar os mocks.');
+
+  // New Server Screen
+  const newServerH2 = document.querySelector('#new-server-screen .form-title-group h2');
+  if (newServerH2) newServerH2.textContent = t('newServerTitle', 'Cadastrar Novo Servidor Mock');
+  const newServerSub = document.querySelector('#new-server-screen .form-subtitle');
+  if (newServerSub) newServerSub.textContent = t('newServerSubtitle', 'Defina as configurações de porta, prefixo e CORS para criar um novo servidor.');
+  const serverNameLabel = document.querySelector('label[for="modal-server-name"]');
+  if (serverNameLabel) {
+    serverNameLabel.innerHTML = `${t('serverName', 'Nome do Servidor')} <span class="required">*</span>`;
+    const help = serverNameLabel.parentElement.querySelector('.form-help');
+    if (help) help.textContent = t('serverNameHelp', 'Um nome descritivo para identificar este servidor no painel.');
+  }
+  if (el.modalServerName) el.modalServerName.placeholder = t('serverNamePlaceholder', 'ex: API de Pagamentos, Auth Service...');
+  const serverPortLabel = document.querySelector('label[for="modal-server-port"]');
+  if (serverPortLabel) {
+    serverPortLabel.innerHTML = `${t('serverPort', 'Porta HTTP')} <span class="required">*</span>`;
+    const help = serverPortLabel.parentElement.querySelector('.form-help');
+    if (help) help.textContent = t('serverPortHelp', 'Porta local (entre 1024 e 65535). Ex: 3000, 8080.');
+  }
+  const serverPrefixLabel = document.querySelector('label[for="modal-server-prefix"]');
+  if (serverPrefixLabel) {
+    serverPrefixLabel.textContent = t('serverPrefix', 'Prefixo Global (opcional)');
+    const help = serverPrefixLabel.parentElement.querySelector('.form-help');
+    if (help) help.textContent = t('serverPrefixHelp', 'Prefixo adicionado antes de todas as rotas deste servidor.');
+  }
+  if (el.modalServerPrefix) el.modalServerPrefix.placeholder = t('serverPrefixPlaceholder', 'ex: /api ou /v1');
+  const corsTitle = document.querySelector('.checkbox-title');
+  if (corsTitle) corsTitle.textContent = t('enableCors', 'Habilitar CORS automaticamente');
+  const corsDesc = document.querySelector('.checkbox-desc');
+  if (corsDesc) corsDesc.textContent = t('enableCorsDesc', 'Adiciona cabeçalhos Access-Control-Allow-Origin e responde automaticamente a requisições OPTIONS pré-voo (pre-flight).');
+  if (el.btnModalCancel) el.btnModalCancel.textContent = t('cancel', 'Cancelar');
+  if (el.btnModalSave) el.btnModalSave.textContent = t('save', 'Salvar');
 }

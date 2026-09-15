@@ -75,14 +75,3 @@ export interface ServerStatusInfo {
   requestCount: number;
   lastStarted?: number;
 }
-
-export interface RequestLogEntry {
-  timestamp: string;
-  serverId: string;
-  serverName: string;
-  method: string;
-  url: string;
-  statusCode: number;
-  durationMs: number;
-  clientIp?: string;
-}

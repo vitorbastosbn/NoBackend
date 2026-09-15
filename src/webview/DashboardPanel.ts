@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { ConfigStorage } from '../storage/ConfigStorage';
 import { ServerManager } from '../server/ServerManager';
 import { NoBackendConfigFile } from '../models/types';
+import { getTranslations, resolveLocale } from './i18n';
 
 export class DashboardPanel {
   public static currentPanel: DashboardPanel | undefined;
@@ -204,12 +205,17 @@ export class DashboardPanel {
       case 'saveNewServer': {
         try {
           await this.configStorage.saveConfig(message.config as NoBackendConfigFile);
-          const srvName = message.name || 'Servidor';
-          const srvPort = message.port ? ` na porta ${message.port}` : '';
-          vscode.window.showInformationMessage(`Servidor "${srvName}" criado com sucesso${srvPort}!`);
+          const translations = getTranslations(vscode.env.language);
+          const srvName = message.name || translations.newServer;
+          const srvPort = message.port ? ` na porta ${message.port}` : ''; // I will just use the new translation format
+          
+          let successMsg = translations.serverCreated.replace('{name}', srvName).replace('{port}', srvPort);
+          vscode.window.showInformationMessage(successMsg);
           this.dispose();
         } catch (err: any) {
-          vscode.window.showErrorMessage(`Falha ao salvar servidor: ${err.message || err}`);
+          const translations = getTranslations(vscode.env.language);
+          let errorMsg = translations.serverSaveFailed.replace('{error}', err.message || err);
+          vscode.window.showErrorMessage(errorMsg);
         }
         break;
       }
@@ -222,9 +228,10 @@ export class DashboardPanel {
       case 'saveConfig': {
         try {
           await this.configStorage.saveConfig(message.config as NoBackendConfigFile);
+          const translations = getTranslations(vscode.env.language);
           this._panel.webview.postMessage({
             type: 'saveSuccess',
-            message: 'Configurações salvas com sucesso!'
+            message: translations.configSaved
           });
         } catch (err: any) {
           vscode.window.showErrorMessage(`Falha ao salvar configuração: ${err.message || err}`);
@@ -336,26 +343,7 @@ export class DashboardPanel {
 
     <!-- Main workspace -->
     <main class="main-layout ${isNewServerInitial ? 'hidden' : ''}" id="main-layout">
-      <!-- Column 1: Routes List of current server (hidden in route-only mode) -->
-      <aside class="col-routes hidden" id="col-routes">
-        <div class="col-header">
-          <div class="routes-header-title">
-            <h3 id="routes-col-title">Rotas</h3>
-            <span id="routes-count-badge" class="badge">0</span>
-          </div>
-          <button id="btn-add-route" class="btn-icon" title="Adicionar Rota">
-            <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-        </div>
-        <div class="routes-filter-box">
-          <input type="text" id="input-route-filter" placeholder="Filtrar rotas..." />
-        </div>
-        <div id="routes-list" class="routes-list">
-          <!-- Populated by JS -->
-        </div>
-      </aside>
-
-      <!-- Column 3: Route & Response Editor -->
+      <!-- Column: Route & Response Editor -->
       <section class="col-editor" id="col-editor">
         <div id="editor-empty" class="editor-empty-state">
           <div class="empty-icon">
@@ -677,6 +665,10 @@ export class DashboardPanel {
     </section>
   </div>
 
+  <script nonce="${nonce}">
+    window.NOBACKEND_I18N = ${JSON.stringify(getTranslations(vscode.env.language))};
+    window.NOBACKEND_LOCALE = "${resolveLocale(vscode.env.language)}";
+  </script>
   <script nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;

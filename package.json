@@ -1,13 +1,28 @@
 {
   "name": "nobackend",
   "displayName": "NoBackend - Mock Server",
-  "description": "Crie e gerencie servidores mock locais com rotas HTTP (GET, POST, PUT, PATCH, DELETE), status codes, latência simulada e CORS direto no VS Code.",
-  "version": "0.1.0",
+  "description": "%extension.description%",
+  "version": "1.0.0",
   "publisher": "nobackend",
+  "author": {
+    "name": "Vitor Bastos",
+    "email": "vitorbastosbn@gmail.com",
+    "url": "https://github.com/vitorbastosbn"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nobackend/nobackend"
+    "url": "https://github.com/vitorbastosbn/NoBackend.git"
   },
+  "bugs": {
+    "url": "https://github.com/vitorbastosbn/NoBackend/issues"
+  },
+  "homepage": "https://github.com/vitorbastosbn/NoBackend#readme",
+  "screenshots": [
+    {
+      "src": "media/screenshot.png",
+      "label": "NoBackend Mock Server Interface"
+    }
+  ],
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
@@ -48,7 +63,7 @@
       "nobackend-sidebar": [
         {
           "id": "nobackend-servers",
-          "name": "Servidores Mock",
+          "name": "%views.mockServers%",
           "type": "tree"
         }
       ]
@@ -56,66 +71,66 @@
     "commands": [
       {
         "command": "nobackend.openDashboard",
-        "title": "Abrir Dashboard",
+        "title": "%command.openDashboard%",
         "category": "NoBackend",
         "icon": "$(dashboard)"
       },
       {
         "command": "nobackend.openRoute",
-        "title": "Abrir Configuração da Rota",
+        "title": "%command.openRoute%",
         "category": "NoBackend"
       },
       {
         "command": "nobackend.addServer",
-        "title": "Adicionar Novo Servidor",
+        "title": "%command.addServer%",
         "category": "NoBackend",
         "icon": "$(plus)"
       },
       {
         "command": "nobackend.addRoute",
-        "title": "Adicionar Rota",
+        "title": "%command.addRoute%",
         "category": "NoBackend",
         "icon": "$(plus)"
       },
       {
         "command": "nobackend.startServer",
-        "title": "Iniciar Servidor",
+        "title": "%command.startServer%",
         "category": "NoBackend",
         "icon": "$(play)"
       },
       {
         "command": "nobackend.stopServer",
-        "title": "Parar Servidor",
+        "title": "%command.stopServer%",
         "category": "NoBackend",
         "icon": "$(debug-stop)"
       },
       {
         "command": "nobackend.startAll",
-        "title": "Iniciar Todos os Servidores",
+        "title": "%command.startAll%",
         "category": "NoBackend",
         "icon": "$(play-all)"
       },
       {
         "command": "nobackend.stopAll",
-        "title": "Parar Todos os Servidores",
+        "title": "%command.stopAll%",
         "category": "NoBackend",
         "icon": "$(primitive-square)"
       },
       {
         "command": "nobackend.deleteServer",
-        "title": "Excluir Servidor",
+        "title": "%command.deleteServer%",
         "category": "NoBackend",
         "icon": "$(trash)"
       },
       {
         "command": "nobackend.deleteRoute",
-        "title": "Excluir Rota",
+        "title": "%command.deleteRoute%",
         "category": "NoBackend",
         "icon": "$(trash)"
       },
       {
         "command": "nobackend.openConfigFile",
-        "title": "Abrir Configuração (.nobackend/servers.json)",
+        "title": "%command.openConfigFile%",
         "category": "NoBackend",
         "icon": "$(file-code)"
       }

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { NoBackendConfigFile, ServerConfig, RouteConfig, ResponseConfig } from '../models/types';
+import { NoBackendConfigFile } from '../models/types';
 
 export class ConfigStorage {
   private static instance: ConfigStorage;
@@ -116,12 +116,12 @@ export class ConfigStorage {
               id: 'route_get_users',
               path: '/users',
               method: 'GET',
-              description: 'Listar todos os usuários',
+              description: 'List all users',
               activeResponseId: 'resp_users_200',
               responses: [
                 {
                   id: 'resp_users_200',
-                  name: '200 Sucesso (Lista)',
+                  name: '200 Success (List)',
                   statusCode: 200,
                   delay: 80,
                   headers: { 'Content-Type': 'application/json' },
@@ -137,12 +137,12 @@ export class ConfigStorage {
                 },
                 {
                   id: 'resp_users_500',
-                  name: '500 Erro Interno',
+                  name: '500 Internal Error',
                   statusCode: 500,
                   delay: 200,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(
-                    { error: 'InternalServerError', message: 'Falha ao buscar usuários no banco de dados' },
+                    { error: 'InternalServerError', message: 'Failed to fetch users from database' },
                     null,
                     2
                   )
@@ -153,12 +153,12 @@ export class ConfigStorage {
               id: 'route_post_users',
               path: '/users',
               method: 'POST',
-              description: 'Criar novo usuário',
+              description: 'Create new user',
               activeResponseId: 'resp_users_create_201',
               responses: [
                 {
                   id: 'resp_users_create_201',
-                  name: '201 Criado com Sucesso',
+                  name: '201 Successfully Created',
                   statusCode: 201,
                   delay: 150,
                   headers: { 'Content-Type': 'application/json' },
@@ -170,12 +170,12 @@ export class ConfigStorage {
                 },
                 {
                   id: 'resp_users_create_400',
-                  name: '400 Validação Incorreta',
+                  name: '400 Validation Error',
                   statusCode: 400,
                   delay: 50,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(
-                    { error: 'BadRequest', errors: ['O campo email é obrigatório e deve ser válido.'] },
+                    { error: 'BadRequest', errors: ['Email field is required and must be valid.'] },
                     null,
                     2
                   )
@@ -186,12 +186,12 @@ export class ConfigStorage {
               id: 'route_get_user_id',
               path: '/users/:id',
               method: 'GET',
-              description: 'Obter detalhes do usuário por ID',
+              description: 'Get user details by ID',
               activeResponseId: 'resp_user_get_200',
               responses: [
                 {
                   id: 'resp_user_get_200',
-                  name: '200 Usuário Encontrado',
+                  name: '200 User Found',
                   statusCode: 200,
                   delay: 50,
                   headers: { 'Content-Type': 'application/json' },
@@ -203,12 +203,12 @@ export class ConfigStorage {
                 },
                 {
                   id: 'resp_user_get_404',
-                  name: '404 Não Encontrado',
+                  name: '404 Not Found',
                   statusCode: 404,
                   delay: 40,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(
-                    { error: 'NotFound', message: 'Usuário com o ID especificado não foi encontrado.' },
+                    { error: 'NotFound', message: 'User with the specified ID was not found.' },
                     null,
                     2
                   )
@@ -219,12 +219,12 @@ export class ConfigStorage {
               id: 'route_put_user_id',
               path: '/users/:id',
               method: 'PUT',
-              description: 'Atualização completa do usuário',
+              description: 'Full user update',
               activeResponseId: 'resp_user_put_200',
               responses: [
                 {
                   id: 'resp_user_put_200',
-                  name: '200 Atualizado',
+                  name: '200 Updated',
                   statusCode: 200,
                   delay: 100,
                   headers: { 'Content-Type': 'application/json' },
@@ -240,17 +240,17 @@ export class ConfigStorage {
               id: 'route_patch_user_id',
               path: '/users/:id',
               method: 'PATCH',
-              description: 'Atualização parcial do usuário',
+              description: 'Partial user update',
               activeResponseId: 'resp_user_patch_200',
               responses: [
                 {
                   id: 'resp_user_patch_200',
-                  name: '200 Parcialmente Atualizado',
+                  name: '200 Partially Updated',
                   statusCode: 200,
                   delay: 70,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(
-                    { id: 1, role: 'super-admin', message: 'Permissões atualizadas com sucesso' },
+                    { id: 1, role: 'super-admin', message: 'Permissions updated successfully' },
                     null,
                     2
                   )
@@ -261,12 +261,12 @@ export class ConfigStorage {
               id: 'route_delete_user_id',
               path: '/users/:id',
               method: 'DELETE',
-              description: 'Excluir usuário',
+              description: 'Delete user',
               activeResponseId: 'resp_user_delete_204',
               responses: [
                 {
                   id: 'resp_user_delete_204',
-                  name: '204 Sem Conteúdo (Excluído)',
+                  name: '204 No Content (Deleted)',
                   statusCode: 204,
                   delay: 120,
                   headers: {},
@@ -288,12 +288,12 @@ export class ConfigStorage {
               id: 'route_auth_login',
               path: '/auth/login',
               method: 'POST',
-              description: 'Autenticação de usuário',
+              description: 'User authentication',
               activeResponseId: 'resp_auth_login_200',
               responses: [
                 {
                   id: 'resp_auth_login_200',
-                  name: '200 Login Bem Sucedido',
+                  name: '200 Successful Login',
                   statusCode: 200,
                   delay: 180,
                   headers: { 'Content-Type': 'application/json' },
@@ -309,12 +309,12 @@ export class ConfigStorage {
                 },
                 {
                   id: 'resp_auth_login_401',
-                  name: '401 Credenciais Inválidas',
+                  name: '401 Invalid Credentials',
                   statusCode: 401,
                   delay: 100,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(
-                    { error: 'Unauthorized', message: 'Email ou senha incorretos' },
+                    { error: 'Unauthorized', message: 'Incorrect email or password' },
                     null,
                     2
                   )
