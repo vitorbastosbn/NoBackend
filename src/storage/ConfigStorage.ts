@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { NoBackendConfigFile } from '../models/types';
 
 export class ConfigStorage {
@@ -24,12 +25,7 @@ export class ConfigStorage {
   }
 
   public getConfigFilePath(): string {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (workspaceFolders && workspaceFolders.length > 0) {
-      return path.join(workspaceFolders[0].uri.fsPath, '.nobackend', 'servers.json');
-    }
-    // Fallback if no workspace is opened
-    return path.join(this.context.globalStorageUri.fsPath, 'servers.json');
+    return path.join(os.homedir(), '.nobackend', 'servers.json');
   }
 
   private setupFileWatcher(): void {

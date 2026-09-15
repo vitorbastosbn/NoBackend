@@ -43,9 +43,9 @@ Create and manage full local mock servers with HTTP routes (GET, POST, PUT, PATC
 - Interpolation of query parameters in the returned payload (`{{query.param}}`).
 - Optional validation of incoming headers, query parameters, and JSON payloads.
 
-### Workspace Persistence
-- Stored in `.nobackend/servers.json` at the root of the project.
-- Sharable configurations via version control (Git) with your whole team.
+### Configuration Persistence
+- Stored in `~/.nobackend/servers.json` in the user's home directory.
+- Global persistence across projects and workspaces.
 
 ### Native Internationalization (i18n)
 - Full support for three languages:
