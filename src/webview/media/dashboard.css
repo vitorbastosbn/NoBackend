@@ -106,10 +106,38 @@ body {
 /* Layout */
 .main-layout {
   display: grid;
-  grid-template-columns: 260px 300px 1fr;
+  grid-template-columns: 340px 1fr;
   flex: 1;
   overflow: hidden;
   height: calc(100vh - 54px);
+  transition: grid-template-columns 0.2s ease;
+}
+
+.main-layout.route-only {
+  grid-template-columns: 1fr;
+}
+
+.main-layout.route-only #col-routes {
+  display: none !important;
+}
+
+.server-badge {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--vscode-foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.server-badge .badge-port {
+  color: #60a5fa;
+  font-weight: 600;
 }
 
 /* Common column styling */
@@ -393,22 +421,49 @@ body {
   overflow: hidden;
 }
 
-.method-tag {
+.route-method-name {
   font-size: 10px;
   font-weight: 700;
   font-family: var(--font-mono);
-  padding: 2px 5px;
-  border-radius: 3px;
   letter-spacing: 0.5px;
-  text-align: center;
   min-width: 48px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: inline-block;
 }
 
-.method-tag.GET { color: var(--color-get); background: var(--color-get-bg); border: 1px solid rgba(16, 185, 129, 0.3); }
-.method-tag.POST { color: var(--color-post); background: var(--color-post-bg); border: 1px solid rgba(59, 130, 246, 0.3); }
-.method-tag.PUT { color: var(--color-put); background: var(--color-put-bg); border: 1px solid rgba(245, 158, 11, 0.3); }
-.method-tag.PATCH { color: var(--color-patch); background: var(--color-patch-bg); border: 1px solid rgba(139, 92, 246, 0.3); }
-.method-tag.DELETE { color: var(--color-delete); background: var(--color-delete-bg); border: 1px solid rgba(239, 68, 68, 0.3); }
+.route-method-name.GET {
+  color: var(--color-get);
+  background: var(--color-get-bg);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.route-method-name.POST {
+  color: var(--color-post);
+  background: var(--color-post-bg);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.route-method-name.PUT {
+  color: var(--color-put);
+  background: var(--color-put-bg);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.route-method-name.PATCH {
+  color: var(--color-patch);
+  background: var(--color-patch-bg);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.route-method-name.DELETE {
+  color: var(--color-delete);
+  background: var(--color-delete-bg);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.route-method-name.OPTIONS {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.15);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
 
 .route-path-text {
   font-family: var(--font-mono);
@@ -420,11 +475,14 @@ body {
 }
 
 .status-pill {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
   font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .status-pill.s2xx { background: rgba(16, 185, 129, 0.15); color: var(--status-2xx); }
 .status-pill.s4xx { background: rgba(245, 158, 11, 0.15); color: var(--status-4xx); }
@@ -830,42 +888,70 @@ body {
   border-color: #3b82f6;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
+/* New Server Screen (Full View) */
+.new-server-screen {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--vscode-editor-background);
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 100;
+  padding: 32px 20px;
 }
 
-.modal-card {
-  width: 420px;
-  background: var(--vscode-editorWidget-background, #252526);
+.screen-container {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.screen-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.screen-title-group h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+  margin-bottom: 3px;
+}
+
+.screen-subtitle {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+}
+
+.screen-card {
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  padding: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.form-section {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.modal-card h3 {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
 .form-group {
@@ -876,32 +962,87 @@ body {
 
 .form-group label {
   font-size: 12px;
+  font-weight: 600;
   color: var(--vscode-foreground);
 }
 
-.form-group input[type="text"], .form-group input[type="number"] {
+.form-group .required {
+  color: #ef4444;
+}
+
+.form-help {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.3;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"] {
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--border-color);
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 4px;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.15s;
 }
 
-.checkbox-group label {
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus {
+  border-color: #3b82f6;
+}
+
+.checkbox-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.checkbox-label {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   cursor: pointer;
 }
 
-.modal-actions {
+.checkbox-label input[type="checkbox"] {
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.checkbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkbox-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.checkbox-desc {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.3;
+}
+
+.screen-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-lg {
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* Utilities */

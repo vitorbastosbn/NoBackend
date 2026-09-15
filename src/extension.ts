@@ -107,26 +107,37 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     vscode.commands.registerCommand('nobackend.addServer', async () => {
-      DashboardPanel.createOrShow(context.extensionUri, configStorage, serverManager!);
+      DashboardPanel.createOrShow(
+        context.extensionUri,
+        configStorage,
+        serverManager!,
+        undefined,
+        undefined,
+        'server',
+        true
+      );
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('nobackend.deleteServer', async (item: ServerTreeItem) => {
-      if (!item || !item.server) return;
+    vscode.commands.registerCommand('nobackend.deleteServer', async (item?: ServerTreeItem | string) => {
+      const serverId = typeof item === 'string' ? item : (item instanceof ServerTreeItem ? item.server.id : undefined);
+      if (!serverId) return;
+      const config = await configStorage.loadConfig();
+      const server = config.servers.find((s) => s.id === serverId);
+      if (!server) return;
       const confirm = await vscode.window.showWarningMessage(
-        `Tem certeza de que deseja excluir o servidor mock "${item.server.name}"?`,
+        `Tem certeza de que deseja excluir o servidor mock "${server.name}"?`,
         { modal: true },
         'Sim, excluir'
       );
       if (confirm === 'Sim, excluir') {
         if (serverManager) {
-          await serverManager.stopServer(item.server.id);
+          await serverManager.stopServer(server.id);
         }
-        const config = await configStorage.loadConfig();
-        config.servers = config.servers.filter((s) => s.id !== item.server.id);
+        config.servers = config.servers.filter((s) => s.id !== server.id);
         await configStorage.saveConfig(config);
-        vscode.window.showInformationMessage(`Servidor "${item.server.name}" excluído.`);
+        vscode.window.showInformationMessage(`Servidor "${server.name}" excluído.`);
       }
     })
   );

@@ -11,7 +11,7 @@ export class ServerTreeItem extends vscode.TreeItem {
     super(server.name, vscode.TreeItemCollapsibleState.Collapsed);
 
     this.id = `server_${server.id}`;
-    this.description = `:${server.port} ${isRunning ? '● Rodando' : '○ Parado'}`;
+    this.description = `:${server.port}`;
     this.contextValue = isRunning ? 'server-running' : 'server-stopped';
 
     if (isRunning) {
@@ -45,23 +45,25 @@ export class RouteTreeItem extends vscode.TreeItem {
     this.description = `[${statusText}] ${activeResponse?.name || ''}`;
     this.contextValue = 'route-item';
 
-    // Set method icon
+    // Set method icon with colored dots
     switch (route.method) {
       case 'GET':
-        this.iconPath = new vscode.ThemeIcon('arrow-right', new vscode.ThemeColor('charts.green'));
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.green'));
         break;
       case 'POST':
-        this.iconPath = new vscode.ThemeIcon('add', new vscode.ThemeColor('charts.blue'));
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.blue'));
         break;
       case 'PUT':
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.yellow'));
+        break;
       case 'PATCH':
-        this.iconPath = new vscode.ThemeIcon('edit', new vscode.ThemeColor('charts.yellow'));
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.purple'));
         break;
       case 'DELETE':
-        this.iconPath = new vscode.ThemeIcon('trash', new vscode.ThemeColor('charts.red'));
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.red'));
         break;
       default:
-        this.iconPath = new vscode.ThemeIcon('symbol-method');
+        this.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.orange'));
     }
 
     this.tooltip = new vscode.MarkdownString(

@@ -1,6 +1,32 @@
 // Acquire VS Code API
 const vscode = acquireVsCodeApi();
 
+const HTTP_STATUS_DESCRIPTIONS = {
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  204: 'No Content',
+  301: 'Moved Permanently',
+  302: 'Found',
+  304: 'Not Modified',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  409: 'Conflict',
+  422: 'Unprocessable Entity',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout'
+};
+
+function getStatusDescription(code) {
+  return HTTP_STATUS_DESCRIPTIONS[code] || '';
+}
+
 // Application State
 let state = {
   config: { version: '1.0.0', servers: [] },
@@ -8,28 +34,42 @@ let state = {
   selectedServerId: null,
   selectedRouteId: null,
   selectedResponseId: null,
+  viewMode: 'server', // 'server' (routes + editor) or 'route' (editor only)
   filterQuery: ''
 };
 
 // DOM Elements
 const el = {
   // Top bar
-  btnStartAll: document.getElementById('btn-start-all'),
-  btnStopAll: document.getElementById('btn-stop-all'),
+  topServerBadge: document.getElementById('top-server-badge'),
+  btnToggleRoutesCol: document.getElementById('btn-toggle-routes-col'),
+  toggleRoutesText: document.getElementById('toggle-routes-text'),
+  btnAddServerTop: document.getElementById('btn-add-server-top'),
+  btnServerStatusToggle: document.getElementById('btn-server-status-toggle'),
+  btnAddRouteTop: document.getElementById('btn-add-route-top'),
   btnOpenJson: document.getElementById('btn-open-json'),
   btnSaveAll: document.getElementById('btn-save-all'),
 
-  // Column 1
-  serversList: document.getElementById('servers-list'),
-  btnAddServer: document.getElementById('btn-add-server'),
-
-  // Column 2
+  // Layout & Columns
+  mainLayout: document.getElementById('main-layout'),
+  colRoutes: document.getElementById('col-routes'),
+  routesColTitle: document.getElementById('routes-col-title'),
   routesList: document.getElementById('routes-list'),
   routesCountBadge: document.getElementById('routes-count-badge'),
   inputRouteFilter: document.getElementById('input-route-filter'),
   btnAddRoute: document.getElementById('btn-add-route'),
 
-  // Column 3
+  // New Server Screen
+  newServerScreen: document.getElementById('new-server-screen'),
+  btnScreenBack: document.getElementById('btn-screen-back'),
+  modalServerName: document.getElementById('modal-server-name'),
+  modalServerPort: document.getElementById('modal-server-port'),
+  modalServerPrefix: document.getElementById('modal-server-prefix'),
+  modalServerCors: document.getElementById('modal-server-cors'),
+  btnModalCancel: document.getElementById('btn-modal-cancel'),
+  btnModalSave: document.getElementById('btn-modal-save'),
+
+  // Editor Column
   editorEmpty: document.getElementById('editor-empty'),
   editorContent: document.getElementById('editor-content'),
   routeMethodSelect: document.getElementById('route-method-select'),
@@ -61,16 +101,7 @@ const el = {
   btnFormatJson: document.getElementById('btn-format-json'),
   btnTemplateArray: document.getElementById('btn-template-array'),
   btnTemplateObject: document.getElementById('btn-template-object'),
-  respBodyTextarea: document.getElementById('resp-body-textarea'),
-
-  // Modal
-  serverModal: document.getElementById('server-modal'),
-  modalServerName: document.getElementById('modal-server-name'),
-  modalServerPort: document.getElementById('modal-server-port'),
-  modalServerPrefix: document.getElementById('modal-server-prefix'),
-  modalServerCors: document.getElementById('modal-server-cors'),
-  btnModalCancel: document.getElementById('btn-modal-cancel'),
-  btnModalSave: document.getElementById('btn-modal-save')
+  respBodyTextarea: document.getElementById('resp-body-textarea')
 };
 
 // Initialize
@@ -86,15 +117,28 @@ window.addEventListener('message', (event) => {
     case 'initData':
       state.config = msg.config;
       state.statusList = msg.statusList || [];
+      state.viewMode = msg.viewMode || 'server';
+
       if (state.config.servers.length > 0) {
         state.selectedServerId = msg.initialServerId || state.config.servers[0].id;
         const currentServer = state.config.servers.find((s) => s.id === state.selectedServerId);
         if (currentServer && currentServer.routes.length > 0) {
           state.selectedRouteId = msg.initialRouteId || currentServer.routes[0].id;
-          state.selectedResponseId = currentServer.routes[0].activeResponseId;
+          const currentRoute = currentServer.routes.find((r) => r.id === state.selectedRouteId);
+          state.selectedResponseId = currentRoute ? currentRoute.activeResponseId : currentServer.routes[0].activeResponseId;
         }
       }
+      applyViewMode();
       renderAll();
+
+      if (msg.openNewServerModal || msg.openNewServerScreen) {
+        openNewServerScreen();
+      }
+      break;
+
+    case 'openNewServerModal':
+    case 'openNewServerScreen':
+      openNewServerScreen();
       break;
 
     case 'configUpdated':
@@ -107,7 +151,7 @@ window.addEventListener('message', (event) => {
 
     case 'statusUpdated':
       state.statusList = msg.statusList || [];
-      renderServersList();
+      renderHeader();
       break;
 
     case 'selectTarget':
@@ -117,6 +161,10 @@ window.addEventListener('message', (event) => {
       if (msg.routeId) {
         state.selectedRouteId = msg.routeId;
       }
+      if (msg.viewMode) {
+        state.viewMode = msg.viewMode;
+      }
+      applyViewMode();
       renderAll();
       break;
 
@@ -126,21 +174,71 @@ window.addEventListener('message', (event) => {
   }
 });
 
+function applyViewMode() {
+  if (state.viewMode === 'route') {
+    el.mainLayout.classList.add('route-only');
+    el.btnToggleRoutesCol.classList.remove('hidden');
+    el.toggleRoutesText.textContent = 'Ver Rotas';
+  } else {
+    el.mainLayout.classList.remove('route-only');
+    el.btnToggleRoutesCol.classList.add('hidden');
+  }
+}
+
 // Setup Events
 function setupEventListeners() {
   // Top actions
-  el.btnStartAll.addEventListener('click', () => vscode.postMessage({ type: 'startAll' }));
-  el.btnStopAll.addEventListener('click', () => vscode.postMessage({ type: 'stopAll' }));
+  el.btnToggleRoutesCol.addEventListener('click', () => {
+    const isOnly = el.mainLayout.classList.toggle('route-only');
+    el.toggleRoutesText.textContent = isOnly ? 'Ver Rotas' : 'Ocultar Rotas';
+  });
+
+  if (el.btnAddServerTop) {
+    el.btnAddServerTop.addEventListener('click', () => openNewServerScreen());
+  }
+
+  // New Server Screen events
+  if (el.btnScreenBack) {
+    el.btnScreenBack.addEventListener('click', () => closeNewServerScreen());
+  }
+  if (el.btnModalCancel) {
+    el.btnModalCancel.addEventListener('click', () => closeNewServerScreen());
+  }
+  if (el.btnModalSave) {
+    el.btnModalSave.addEventListener('click', () => handleSaveServerScreen());
+  }
+
+  const modalInputs = [el.modalServerName, el.modalServerPort, el.modalServerPrefix];
+  modalInputs.forEach((inp) => {
+    if (inp) {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSaveServerScreen();
+        }
+      });
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && el.newServerScreen && !el.newServerScreen.classList.contains('hidden')) {
+      closeNewServerScreen();
+    }
+  });
+
+  el.btnServerStatusToggle.addEventListener('click', () => {
+    if (state.selectedServerId) {
+      vscode.postMessage({ type: 'toggleServer', serverId: state.selectedServerId });
+    }
+  });
+
+  el.btnAddRouteTop.addEventListener('click', () => handleAddRoute());
+  el.btnAddRoute.addEventListener('click', () => handleAddRoute());
+
   el.btnOpenJson.addEventListener('click', () => vscode.postMessage({ type: 'openConfigFile' }));
   el.btnSaveAll.addEventListener('click', () => saveConfig());
 
-  // Server actions
-  el.btnAddServer.addEventListener('click', () => openServerModal());
-  el.btnModalCancel.addEventListener('click', () => closeServerModal());
-  el.btnModalSave.addEventListener('click', () => handleSaveServerModal());
-
-  // Route actions
-  el.btnAddRoute.addEventListener('click', () => handleAddRoute());
+  // Filter
   el.inputRouteFilter.addEventListener('input', (e) => {
     state.filterQuery = e.target.value.toLowerCase();
     renderRoutesList();
@@ -344,7 +442,6 @@ function updateStatusCode(code) {
   const resp = getSelectedResponse();
   if (resp) {
     resp.statusCode = code;
-    // Sync quick dropdown
     const opt = el.respStatusQuick.querySelector(`option[value="${code}"]`);
     el.respStatusQuick.value = opt ? code : 'custom';
     renderResponsesTabs();
@@ -382,53 +479,36 @@ function validateJson(text) {
 
 // Rendering
 function renderAll() {
-  renderServersList();
+  renderHeader();
   renderRoutesList();
   renderEditor();
 }
 
-function renderServersList() {
-  el.serversList.innerHTML = '';
+function renderHeader() {
+  const server = getSelectedServer();
+  if (!server) {
+    el.topServerBadge.textContent = 'Nenhum servidor';
+    el.btnServerStatusToggle.classList.add('hidden');
+    return;
+  }
 
-  state.config.servers.forEach((srv) => {
-    const status = state.statusList.find((st) => st.serverId === srv.id);
-    const isRunning = status ? status.running : false;
-    const isSelected = srv.id === state.selectedServerId;
+  const status = state.statusList.find((st) => st.serverId === server.id);
+  const isRunning = status ? status.running : false;
 
-    const card = document.createElement('div');
-    card.className = `server-card ${isSelected ? 'active' : ''}`;
-    card.innerHTML = `
-      <div class="server-card-top">
-        <div class="server-name" title="${srv.name}">${srv.name}</div>
-        <button class="server-toggle-btn ${isRunning ? 'running' : 'stopped'}" title="${isRunning ? 'Clique para Parar' : 'Clique para Iniciar'}">
-          ${isRunning ? '● Rodando' : '○ Parado'}
-        </button>
-      </div>
-      <div class="server-card-bottom">
-        <span class="server-port-pill">:${srv.port}</span>
-        <span>${srv.routes.length} rota(s)</span>
-      </div>
-    `;
+  el.topServerBadge.innerHTML = `${server.name} <span class="badge-port">:${server.port}</span>`;
 
-    // Click select
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.server-toggle-btn')) {
-        return; // Handled below
-      }
-      state.selectedServerId = srv.id;
-      state.selectedRouteId = srv.routes.length > 0 ? srv.routes[0].id : null;
-      renderAll();
-    });
+  el.btnServerStatusToggle.classList.remove('hidden');
+  if (isRunning) {
+    el.btnServerStatusToggle.className = 'btn btn-sm btn-success';
+    el.btnServerStatusToggle.innerHTML = `● Rodando (Porta :${server.port})`;
+    el.btnServerStatusToggle.title = 'Clique para parar este servidor';
+  } else {
+    el.btnServerStatusToggle.className = 'btn btn-sm btn-secondary';
+    el.btnServerStatusToggle.innerHTML = `○ Iniciar (: ${server.port})`;
+    el.btnServerStatusToggle.title = 'Clique para iniciar este servidor';
+  }
 
-    // Click toggle
-    const toggleBtn = card.querySelector('.server-toggle-btn');
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      vscode.postMessage({ type: 'toggleServer', serverId: srv.id });
-    });
-
-    el.serversList.appendChild(card);
-  });
+  el.routesColTitle.textContent = server.name;
 }
 
 function renderRoutesList() {
@@ -452,6 +532,7 @@ function renderRoutesList() {
     const isSelected = route.id === state.selectedRouteId;
     const activeResp = route.responses.find((r) => r.id === route.activeResponseId) || route.responses[0];
     const statusCode = activeResp ? activeResp.statusCode : 200;
+    const statusText = getStatusDescription(statusCode);
 
     let statusClass = 's2xx';
     if (statusCode >= 400 && statusCode < 500) statusClass = 's4xx';
@@ -461,10 +542,10 @@ function renderRoutesList() {
     card.className = `route-card ${isSelected ? 'active' : ''}`;
     card.innerHTML = `
       <div class="route-card-left">
-        <span class="method-tag ${route.method}">${route.method}</span>
+        <span class="route-method-name ${route.method}">${route.method}</span>
         <span class="route-path-text" title="${route.path}">${route.path}</span>
       </div>
-      <span class="status-pill ${statusClass}">${statusCode}</span>
+      <span class="status-pill ${statusClass}">${statusCode} ${statusText}</span>
     `;
 
     card.addEventListener('click', () => {
@@ -514,12 +595,13 @@ function renderResponsesTabs() {
   route.responses.forEach((resp) => {
     const isActive = resp.id === route.activeResponseId;
     const isSelected = resp.id === state.selectedResponseId;
+    const statusDesc = getStatusDescription(resp.statusCode);
 
     const tab = document.createElement('div');
     tab.className = `resp-tab ${isSelected ? 'active' : ''}`;
     tab.innerHTML = `
       ${isActive ? '<span class="active-star">★</span>' : ''}
-      <span>${resp.statusCode} ${resp.name || ''}</span>
+      <span>${resp.statusCode} ${resp.name || statusDesc}</span>
     `;
 
     tab.addEventListener('click', () => {
@@ -643,7 +725,7 @@ function handleAddRoute() {
     responses: [
       {
         id: respId,
-        name: '200 Sucesso',
+        name: '200 OK',
         statusCode: 200,
         delay: 0,
         headers: { 'Content-Type': 'application/json' },
@@ -656,6 +738,7 @@ function handleAddRoute() {
   state.selectedRouteId = newId;
   state.selectedResponseId = respId;
 
+  // If in route-only mode, make sure editor is visible
   renderRoutesList();
   renderEditor();
   markDirty();
@@ -668,7 +751,7 @@ function handleAddResponse() {
   const respId = 'resp_' + Date.now();
   const newResp = {
     id: respId,
-    name: '400 Erro',
+    name: '400 Bad Request',
     statusCode: 400,
     delay: 0,
     headers: { 'Content-Type': 'application/json' },
@@ -681,73 +764,6 @@ function handleAddResponse() {
   renderResponsesTabs();
   renderResponseDetails();
   markDirty();
-}
-
-// Modals
-function openServerModal() {
-  el.modalServerName.value = 'Novo Servidor';
-  // Compute next free port recommendation
-  const existingPorts = state.config.servers.map((s) => s.port);
-  let nextPort = 3000;
-  while (existingPorts.includes(nextPort)) {
-    nextPort++;
-  }
-  el.modalServerPort.value = nextPort;
-  el.modalServerPrefix.value = '/api';
-  el.modalServerCors.checked = true;
-  el.serverModal.classList.remove('hidden');
-}
-
-function closeServerModal() {
-  el.serverModal.classList.add('hidden');
-}
-
-function handleSaveServerModal() {
-  const name = el.modalServerName.value.trim() || 'Servidor Mock';
-  const port = parseInt(el.modalServerPort.value, 10) || 3000;
-  const prefix = el.modalServerPrefix.value.trim();
-  const cors = el.modalServerCors.checked;
-
-  const serverId = 'srv_' + Date.now();
-  const defaultRouteId = 'route_' + Date.now();
-  const defaultRespId = 'resp_' + Date.now();
-
-  const newServer = {
-    id: serverId,
-    name,
-    port,
-    prefix,
-    cors,
-    enabled: true,
-    routes: [
-      {
-        id: defaultRouteId,
-        path: '/status',
-        method: 'GET',
-        description: 'Status do mock',
-        activeResponseId: defaultRespId,
-        responses: [
-          {
-            id: defaultRespId,
-            name: '200 OK',
-            statusCode: 200,
-            delay: 0,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: "online", server: name, timestamp: new Date().toISOString() }, null, 2)
-          }
-        ]
-      }
-    ]
-  };
-
-  state.config.servers.push(newServer);
-  state.selectedServerId = serverId;
-  state.selectedRouteId = defaultRouteId;
-  state.selectedResponseId = defaultRespId;
-
-  closeServerModal();
-  renderAll();
-  saveConfig();
 }
 
 // Auto-save debouncing & save triggering
@@ -777,3 +793,134 @@ function showTransientToast(text) {
     btn.style.background = '';
   }, 1500);
 }
+
+// New Server Screen Management
+function openNewServerScreen() {
+  if (!el.newServerScreen) return;
+
+  // Calculate next recommended port
+  const existingPorts = (state.config.servers || []).map((s) => Number(s.port));
+  let nextPort = 3000;
+  while (existingPorts.includes(nextPort)) {
+    nextPort++;
+  }
+
+  el.modalServerName.value = 'Novo Servidor';
+  el.modalServerPort.value = nextPort;
+  el.modalServerPrefix.value = '/api';
+  el.modalServerCors.checked = true;
+
+  if (el.mainLayout) {
+    el.mainLayout.classList.add('hidden');
+  }
+  el.newServerScreen.classList.remove('hidden');
+
+  setTimeout(() => {
+    el.modalServerName.focus();
+    el.modalServerName.select();
+  }, 50);
+}
+
+function closeNewServerScreen() {
+  if (el.newServerScreen) {
+    el.newServerScreen.classList.add('hidden');
+  }
+  if (el.mainLayout) {
+    el.mainLayout.classList.remove('hidden');
+  }
+}
+
+function handleSaveServerScreen() {
+  const name = (el.modalServerName.value || '').trim() || 'Novo Servidor';
+  const port = parseInt(el.modalServerPort.value, 10);
+  let prefix = (el.modalServerPrefix.value || '').trim();
+  const cors = el.modalServerCors.checked;
+
+  if (isNaN(port) || port < 1024 || port > 65535) {
+    vscode.postMessage({
+      type: 'notify',
+      level: 'warning',
+      text: 'A porta deve ser um número válido entre 1024 e 65535.'
+    });
+    el.modalServerPort.focus();
+    return;
+  }
+
+  const portConflict = (state.config.servers || []).find((s) => Number(s.port) === port);
+  if (portConflict) {
+    vscode.postMessage({
+      type: 'notify',
+      level: 'warning',
+      text: `A porta ${port} já está sendo utilizada pelo servidor "${portConflict.name}". Escolha outra porta.`
+    });
+    el.modalServerPort.focus();
+    return;
+  }
+
+  if (prefix && !prefix.startsWith('/')) {
+    prefix = '/' + prefix;
+  }
+  prefix = prefix.replace(/\/+$/, '');
+
+  const serverId = 'srv_' + Date.now();
+  const defaultRouteId = 'route_' + Date.now();
+  const defaultRespId = 'resp_' + Date.now();
+
+  const newServer = {
+    id: serverId,
+    name,
+    port,
+    prefix,
+    cors,
+    enabled: true,
+    routes: [
+      {
+        id: defaultRouteId,
+        path: '/status',
+        method: 'GET',
+        description: 'Status do servidor mock',
+        activeResponseId: defaultRespId,
+        responses: [
+          {
+            id: defaultRespId,
+            name: '200 OK',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              {
+                status: 'online',
+                server: name,
+                port,
+                message: 'NoBackend Mock Server ativo',
+                timestamp: new Date().toISOString()
+              },
+              null,
+              2
+            )
+          }
+        ]
+      }
+    ]
+  };
+
+  if (!state.config.servers) {
+    state.config.servers = [];
+  }
+  state.config.servers.push(newServer);
+  state.selectedServerId = serverId;
+  state.selectedRouteId = defaultRouteId;
+  state.selectedResponseId = defaultRespId;
+
+  // Screen closes upon successful save
+  closeNewServerScreen();
+  renderAll();
+  saveConfig();
+
+  vscode.postMessage({
+    type: 'notify',
+    level: 'info',
+    text: `Servidor "${name}" criado com sucesso na porta ${port}!`
+  });
+}
+

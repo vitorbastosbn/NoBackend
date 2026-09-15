@@ -96,7 +96,7 @@
           "responses": [
             {
               "id": "resp_user_get_200",
-              "name": "200 Usuário Encontrado",
+              "name": "Usuário Encontrado",
               "statusCode": 200,
               "delay": 50,
               "headers": {
@@ -106,13 +106,23 @@
             },
             {
               "id": "resp_user_get_404",
-              "name": "404 Não Encontrado",
+              "name": "Não Encontrado",
               "statusCode": 404,
               "delay": 40,
               "headers": {
                 "Content-Type": "application/json"
               },
               "body": "{\n  \"error\": \"NotFound\",\n  \"message\": \"Usuário com o ID especificado não foi encontrado.\"\n}"
+            },
+            {
+              "id": "resp_1789428979687",
+              "name": "Agora é o não encontrado em outro",
+              "statusCode": 404,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
             }
           ]
         },
@@ -207,6 +217,35 @@
                 "Content-Type": "application/json"
               },
               "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Email ou senha incorretos\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "srv_1789431561472",
+      "name": "Novo Servidor",
+      "port": 3002,
+      "prefix": "/api",
+      "cors": true,
+      "enabled": false,
+      "routes": [
+        {
+          "id": "route_1789431561472",
+          "path": "/status",
+          "method": "GET",
+          "description": "Status do servidor mock",
+          "activeResponseId": "resp_1789431561472",
+          "responses": [
+            {
+              "id": "resp_1789431561472",
+              "name": "200 OK",
+              "statusCode": 200,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"status\": \"online\",\n  \"server\": \"Novo Servidor\",\n  \"port\": 3002,\n  \"message\": \"NoBackend Mock Server ativo\",\n  \"timestamp\": \"2026-09-15T00:19:21.472Z\"\n}"
             }
           ]
         }

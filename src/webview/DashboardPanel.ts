@@ -9,6 +9,10 @@ export class DashboardPanel {
   public static currentPanel: DashboardPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
+  private currentServerId?: string;
+  private currentRouteId?: string;
+  private currentViewMode: 'server' | 'route' = 'server';
+  private shouldOpenNewServerModal: boolean = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -16,9 +20,15 @@ export class DashboardPanel {
     private readonly configStorage: ConfigStorage,
     private readonly serverManager: ServerManager,
     initialServerId?: string,
-    initialRouteId?: string
+    initialRouteId?: string,
+    viewMode: 'server' | 'route' = 'server',
+    openNewServerModal: boolean = false
   ) {
     this._panel = panel;
+    this.currentServerId = initialServerId;
+    this.currentRouteId = initialRouteId;
+    this.currentViewMode = viewMode;
+    this.shouldOpenNewServerModal = openNewServerModal;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
@@ -27,7 +37,7 @@ export class DashboardPanel {
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
-        await this.handleWebviewMessage(message, initialServerId, initialRouteId);
+        await this.handleWebviewMessage(message);
       },
       null,
       this._disposables
@@ -56,7 +66,9 @@ export class DashboardPanel {
     configStorage: ConfigStorage,
     serverManager: ServerManager,
     initialServerId?: string,
-    initialRouteId?: string
+    initialRouteId?: string,
+    viewMode: 'server' | 'route' = 'server',
+    openNewServerModal: boolean = false
   ): DashboardPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -65,18 +77,32 @@ export class DashboardPanel {
     if (DashboardPanel.currentPanel) {
       DashboardPanel.currentPanel._panel.reveal(column);
       if (initialServerId) {
+        DashboardPanel.currentPanel.currentServerId = initialServerId;
+      }
+      if (initialRouteId) {
+        DashboardPanel.currentPanel.currentRouteId = initialRouteId;
+      }
+      DashboardPanel.currentPanel.currentViewMode = viewMode;
+
+      DashboardPanel.currentPanel._panel.webview.postMessage({
+        type: 'selectTarget',
+        serverId: initialServerId,
+        routeId: initialRouteId,
+        viewMode
+      });
+
+      if (openNewServerModal) {
         DashboardPanel.currentPanel._panel.webview.postMessage({
-          type: 'selectTarget',
-          serverId: initialServerId,
-          routeId: initialRouteId
+          type: 'openNewServerModal'
         });
       }
+
       return DashboardPanel.currentPanel;
     }
 
     const panel = vscode.window.createWebviewPanel(
       'nobackendDashboard',
-      'NoBackend - Mock Dashboard',
+      'NoBackend - Mock Server',
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -94,27 +120,32 @@ export class DashboardPanel {
       configStorage,
       serverManager,
       initialServerId,
-      initialRouteId
+      initialRouteId,
+      viewMode,
+      openNewServerModal
     );
     return DashboardPanel.currentPanel;
   }
 
-  private async handleWebviewMessage(
-    message: any,
-    initialServerId?: string,
-    initialRouteId?: string
-  ): Promise<void> {
+  private async handleWebviewMessage(message: any): Promise<void> {
     switch (message.type) {
       case 'ready': {
         const config = await this.configStorage.loadConfig();
         const statusList = this.serverManager.getAllStatus();
+
+        // Default to first server if not specified
+        const serverId = this.currentServerId || (config.servers.length > 0 ? config.servers[0].id : undefined);
+
         this._panel.webview.postMessage({
           type: 'initData',
           config,
           statusList,
-          initialServerId,
-          initialRouteId
+          initialServerId: serverId,
+          initialRouteId: this.currentRouteId,
+          viewMode: this.currentViewMode,
+          openNewServerModal: this.shouldOpenNewServerModal
         });
+        this.shouldOpenNewServerModal = false;
         break;
       }
       case 'saveConfig': {
@@ -203,42 +234,37 @@ export class DashboardPanel {
       <div class="brand">
         <div class="brand-icon">⚡</div>
         <div class="brand-title">NoBackend</div>
-        <span class="brand-badge">Mock Server</span>
+        <span id="top-server-badge" class="server-badge">Servidor</span>
       </div>
       <div class="top-actions">
-        <button id="btn-start-all" class="btn btn-success" title="Iniciar todos os servidores">
-          <span class="icon">▶</span> Iniciar Todos
+        <button id="btn-toggle-routes-col" class="btn btn-outline hidden" title="Alternar visualização da lista de rotas">
+          <span class="icon">☰</span> <span id="toggle-routes-text">Ver Rotas</span>
         </button>
-        <button id="btn-stop-all" class="btn btn-secondary" title="Parar todos os servidores">
-          <span class="icon">⏹</span> Parar Todos
+        <button id="btn-add-server-top" class="btn btn-outline" title="Cadastrar Novo Servidor Mock">
+          + Novo Servidor
+        </button>
+        <button id="btn-server-status-toggle" class="btn btn-sm" title="Iniciar/Parar Servidor">
+          ● Rodando
+        </button>
+        <button id="btn-add-route-top" class="btn btn-primary" title="Adicionar Nova Rota">
+          + Nova Rota
         </button>
         <button id="btn-open-json" class="btn btn-outline" title="Abrir .nobackend/servers.json no editor">
-          <span class="icon">📄</span> Abrir JSON
+          📄 JSON
         </button>
-        <button id="btn-save-all" class="btn btn-primary" title="Salvar todas as alterações (Ctrl+S)">
-          <span class="icon">💾</span> Salvar
+        <button id="btn-save-all" class="btn btn-success" title="Salvar todas as alterações (Ctrl+S)">
+          💾 Salvar
         </button>
       </div>
     </header>
 
-    <!-- Main 3-column workspace -->
-    <main class="main-layout">
-      <!-- Column 1: Servers List -->
-      <aside class="col-servers">
-        <div class="col-header">
-          <h3>Servidores</h3>
-          <button id="btn-add-server" class="btn-icon" title="Adicionar Servidor">➕</button>
-        </div>
-        <div id="servers-list" class="servers-list">
-          <!-- Populated by JS -->
-        </div>
-      </aside>
-
-      <!-- Column 2: Routes List -->
-      <aside class="col-routes">
+    <!-- Main 2-column / 1-column workspace (Routes + Editor) -->
+    <main class="main-layout" id="main-layout">
+      <!-- Column 1: Routes List of current server -->
+      <aside class="col-routes" id="col-routes">
         <div class="col-header">
           <div class="routes-header-title">
-            <h3>Rotas</h3>
+            <h3 id="routes-col-title">Rotas</h3>
             <span id="routes-count-badge" class="badge">0</span>
           </div>
           <button id="btn-add-route" class="btn-icon" title="Adicionar Rota">➕</button>
@@ -389,35 +415,63 @@ export class DashboardPanel {
       </section>
     </main>
 
-    <!-- Modal for New/Edit Server -->
-    <div id="server-modal" class="modal-overlay hidden">
-      <div class="modal-card">
-        <h3 id="server-modal-title">Novo Servidor Mock</h3>
-        <div class="modal-form">
-          <div class="form-group">
-            <label>Nome do Servidor</label>
-            <input type="text" id="modal-server-name" placeholder="ex: API de Pagamentos" />
-          </div>
-          <div class="form-group">
-            <label>Porta HTTP</label>
-            <input type="number" id="modal-server-port" min="1024" max="65535" value="3002" />
-          </div>
-          <div class="form-group">
-            <label>Prefixo Global (opcional)</label>
-            <input type="text" id="modal-server-prefix" placeholder="ex: /api ou /v1" />
-          </div>
-          <div class="form-group checkbox-group">
-            <label>
-              <input type="checkbox" id="modal-server-cors" checked /> Habilitar CORS automaticamente
-            </label>
+    <!-- Screen for New Server Registration (Full screen view, not a floating modal) -->
+    <section id="new-server-screen" class="new-server-screen hidden">
+      <div class="screen-container">
+        <div class="screen-header">
+          <div class="screen-header-left">
+            <button id="btn-screen-back" class="btn btn-outline" title="Voltar sem salvar">
+              ← Voltar
+            </button>
+            <div class="screen-title-group">
+              <h2>Cadastrar Novo Servidor Mock</h2>
+              <p class="screen-subtitle">Defina as configurações de porta, prefixo e CORS para criar um novo servidor.</p>
+            </div>
           </div>
         </div>
-        <div class="modal-actions">
-          <button id="btn-modal-cancel" class="btn btn-secondary">Cancelar</button>
-          <button id="btn-modal-save" class="btn btn-primary">Salvar Servidor</button>
+
+        <div class="screen-card">
+          <div class="form-section">
+            <div class="form-group">
+              <label for="modal-server-name">Nome do Servidor <span class="required">*</span></label>
+              <input type="text" id="modal-server-name" placeholder="ex: API de Pagamentos, Auth Service..." />
+              <span class="form-help">Um nome descritivo para identificar este servidor no painel.</span>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="modal-server-port">Porta HTTP <span class="required">*</span></label>
+                <input type="number" id="modal-server-port" min="1024" max="65535" value="3000" />
+                <span class="form-help">Porta local (entre 1024 e 65535). Ex: 3000, 8080.</span>
+              </div>
+
+              <div class="form-group">
+                <label for="modal-server-prefix">Prefixo Global (opcional)</label>
+                <input type="text" id="modal-server-prefix" placeholder="ex: /api ou /v1" />
+                <span class="form-help">Prefixo adicionado antes de todas as rotas deste servidor.</span>
+              </div>
+            </div>
+
+            <div class="form-group checkbox-card">
+              <label class="checkbox-label">
+                <input type="checkbox" id="modal-server-cors" checked />
+                <div class="checkbox-text">
+                  <span class="checkbox-title">Habilitar CORS automaticamente</span>
+                  <span class="checkbox-desc">Adiciona cabeçalhos Access-Control-Allow-Origin e responde automaticamente a requisições OPTIONS pré-voo (pre-flight).</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="screen-actions">
+            <button id="btn-modal-cancel" class="btn btn-outline">Cancelar</button>
+            <button id="btn-modal-save" class="btn btn-primary btn-lg">
+              💾 Salvar Servidor
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 
   <script nonce="${nonce}" src="${jsUri}"></script>
