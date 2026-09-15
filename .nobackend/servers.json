@@ -55,6 +55,36 @@
                 "Content-Type": "application/json"
               },
               "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+            },
+            {
+              "id": "resp_1789435307227",
+              "name": "400 Bad Request",
+              "statusCode": 400,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+            },
+            {
+              "id": "resp_1789435308331",
+              "name": "400 Bad Request",
+              "statusCode": 400,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
+            },
+            {
+              "id": "resp_1789435309153",
+              "name": "400 Bad Request",
+              "statusCode": 400,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"error\": \"BadRequest\",\n  \"message\": \"Exemplo de erro simulado\"\n}"
             }
           ]
         },
@@ -228,7 +258,7 @@
       "port": 3002,
       "prefix": "/api",
       "cors": true,
-      "enabled": true,
+      "enabled": false,
       "routes": [
         {
           "id": "route_1789434942886",
@@ -258,6 +288,25 @@
           "responses": [
             {
               "id": "resp_1789435024490",
+              "name": "200 OK",
+              "statusCode": 200,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"message\": \"Mock gerado com sucesso!\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "route_1789435541539",
+          "path": "/nova-rota-2",
+          "method": "GET",
+          "description": "",
+          "activeResponseId": "resp_1789435541539",
+          "responses": [
+            {
+              "id": "resp_1789435541539",
               "name": "200 OK",
               "statusCode": 200,
               "delay": 0,

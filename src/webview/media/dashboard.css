@@ -106,21 +106,20 @@ body {
 /* Layout */
 .main-layout {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 1fr;
   flex: 1;
   overflow: hidden;
   height: calc(100vh - 54px);
   transition: grid-template-columns 0.2s ease;
 }
 
-.main-layout.route-only {
-  grid-template-columns: 1fr;
-}
-
-.main-layout.route-only #col-routes {
+.main-layout #col-routes,
+.main-layout.route-only #col-routes,
+#col-routes {
   display: none !important;
 }
 
+.main-layout .editor-content,
 .main-layout.route-only .editor-content {
   max-width: 960px;
   margin: 0 auto;

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ConfigStorage } from './storage/ConfigStorage';
 import { ServerManager } from './server/ServerManager';
 import { ServersTreeProvider, ServerTreeItem, RouteTreeItem } from './tree/ServersTreeProvider';
+import { RouteConfig } from './models/types';
 import { DashboardPanel } from './webview/DashboardPanel';
 
 let serverManager: ServerManager | undefined;
@@ -151,6 +152,91 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         undefined,
         undefined,
         'server',
+        true
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nobackend.addRoute', async (item?: ServerTreeItem | string) => {
+      let serverId = item instanceof ServerTreeItem ? item.server.id : item;
+      const config = await configStorage.loadConfig();
+
+      if (!serverId) {
+        if (config.servers.length === 0) {
+          vscode.window.showWarningMessage('Nenhum servidor mock encontrado. Crie um servidor primeiro.');
+          return;
+        }
+        if (config.servers.length === 1) {
+          serverId = config.servers[0].id;
+        } else {
+          const pick = await vscode.window.showQuickPick(
+            config.servers.map((s) => ({
+              label: s.name,
+              description: `:${s.port}`,
+              detail: `${s.routes.length} rota(s)`,
+              serverId: s.id
+            })),
+            { placeHolder: 'Selecione o servidor para adicionar a rota' }
+          );
+          if (!pick) return;
+          serverId = pick.serverId;
+        }
+      }
+
+      const server = config.servers.find((s) => s.id === serverId);
+      if (!server) {
+        vscode.window.showErrorMessage('Servidor mock não encontrado.');
+        return;
+      }
+
+      const routeId = 'route_' + Date.now();
+      const respId = 'resp_' + Date.now();
+
+      let defaultPath = '/nova-rota';
+      const existingPaths = new Set(server.routes.map((r) => r.path));
+      if (existingPaths.has(defaultPath)) {
+        let counter = 2;
+        while (existingPaths.has(`/nova-rota-${counter}`)) {
+          counter++;
+        }
+        defaultPath = `/nova-rota-${counter}`;
+      }
+
+      const newRoute: RouteConfig = {
+        id: routeId,
+        path: defaultPath,
+        method: 'GET',
+        description: '',
+        activeResponseId: respId,
+        responses: [
+          {
+            id: respId,
+            name: '200 OK',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Mock gerado com sucesso!' }, null, 2)
+          }
+        ]
+      };
+
+      server.routes.push(newRoute);
+      await configStorage.saveConfig(config);
+
+      // Expand server in sidebar tree so the user immediately sees the new route
+      treeProvider.setServerExpanded(server.id, true);
+      treeProvider.refresh();
+
+      // Open route management screen directly for this new route
+      DashboardPanel.createOrShow(
+        context.extensionUri,
+        configStorage,
+        serverManager!,
+        server.id,
+        newRoute.id,
+        'route',
+        false,
         true
       );
     })

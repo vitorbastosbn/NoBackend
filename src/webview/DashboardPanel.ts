@@ -13,6 +13,7 @@ export class DashboardPanel {
   private currentRouteId?: string;
   private currentViewMode: 'server' | 'route' = 'server';
   private shouldOpenNewServerModal: boolean = false;
+  private isNewRoute: boolean = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -22,13 +23,15 @@ export class DashboardPanel {
     initialServerId?: string,
     initialRouteId?: string,
     viewMode: 'server' | 'route' = 'server',
-    openNewServerModal: boolean = false
+    openNewServerModal: boolean = false,
+    isNewRoute: boolean = false
   ) {
     this._panel = panel;
     this.currentServerId = initialServerId;
     this.currentRouteId = initialRouteId;
     this.currentViewMode = viewMode;
     this.shouldOpenNewServerModal = openNewServerModal;
+    this.isNewRoute = isNewRoute;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
@@ -68,7 +71,8 @@ export class DashboardPanel {
     initialServerId?: string,
     initialRouteId?: string,
     viewMode: 'server' | 'route' = 'server',
-    openNewServerModal: boolean = false
+    openNewServerModal: boolean = false,
+    isNewRoute: boolean = false
   ): DashboardPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -83,6 +87,7 @@ export class DashboardPanel {
         DashboardPanel.currentPanel.currentRouteId = initialRouteId;
       }
       DashboardPanel.currentPanel.currentViewMode = viewMode;
+      DashboardPanel.currentPanel.isNewRoute = isNewRoute;
 
       if (initialServerId && initialRouteId) {
         configStorage.loadConfig().then((cfg) => {
@@ -104,6 +109,12 @@ export class DashboardPanel {
       if (openNewServerModal) {
         DashboardPanel.currentPanel._panel.webview.postMessage({
           type: 'openNewServerModal'
+        });
+      }
+
+      if (isNewRoute) {
+        DashboardPanel.currentPanel._panel.webview.postMessage({
+          type: 'newRouteCreated'
         });
       }
 
@@ -142,7 +153,8 @@ export class DashboardPanel {
       initialServerId,
       initialRouteId,
       viewMode,
-      openNewServerModal
+      openNewServerModal,
+      isNewRoute
     );
     return DashboardPanel.currentPanel;
   }
@@ -163,9 +175,29 @@ export class DashboardPanel {
           initialServerId: serverId,
           initialRouteId: this.currentRouteId,
           viewMode: this.currentViewMode,
-          openNewServerModal: this.shouldOpenNewServerModal
+          openNewServerModal: this.shouldOpenNewServerModal,
+          isNewRoute: this.isNewRoute
         });
         this.shouldOpenNewServerModal = false;
+        this.isNewRoute = false;
+        break;
+      }
+      case 'saveNewServer': {
+        try {
+          await this.configStorage.saveConfig(message.config as NoBackendConfigFile);
+          const srvName = message.name || 'Servidor';
+          const srvPort = message.port ? ` na porta ${message.port}` : '';
+          vscode.window.showInformationMessage(`Servidor "${srvName}" criado com sucesso${srvPort}!`);
+          this.dispose();
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Falha ao salvar servidor: ${err.message || err}`);
+        }
+        break;
+      }
+      case 'updateTitle': {
+        if (message.title && this._panel) {
+          this._panel.title = message.title;
+        }
         break;
       }
       case 'saveConfig': {
@@ -264,12 +296,6 @@ export class DashboardPanel {
         <span id="top-server-badge" class="server-badge">Servidor</span>
       </div>
       <div class="top-actions">
-        <button id="btn-toggle-routes-col" class="btn btn-outline hidden" title="Alternar visualização da lista de rotas">
-          <span class="icon">☰</span> <span id="toggle-routes-text">Ver Rotas</span>
-        </button>
-        <button id="btn-add-route-top" class="btn btn-primary" title="Adicionar Nova Rota">
-          + Nova Rota
-        </button>
         <button id="btn-save-all" class="btn btn-success" title="Salvar todas as alterações (Ctrl+S)">
           Salvar
         </button>
@@ -278,8 +304,8 @@ export class DashboardPanel {
 
     <!-- Main 2-column / 1-column workspace (Routes + Editor) -->
     <main class="main-layout ${isNewServerInitial ? 'hidden' : ''}" id="main-layout">
-      <!-- Column 1: Routes List of current server -->
-      <aside class="col-routes" id="col-routes">
+      <!-- Column 1: Routes List of current server (hidden in route-only mode) -->
+      <aside class="col-routes hidden" id="col-routes">
         <div class="col-header">
           <div class="routes-header-title">
             <h3 id="routes-col-title">Rotas</h3>
@@ -300,7 +326,7 @@ export class DashboardPanel {
         <div id="editor-empty" class="editor-empty-state">
           <div class="empty-icon">📭</div>
           <h3>Nenhuma rota selecionada</h3>
-          <p>Selecione uma rota na coluna ao lado ou crie uma nova para configurar os mocks.</p>
+          <p>Crie uma nova rota na barra lateral clicando no botão ➕ do servidor.</p>
         </div>
 
         <div id="editor-content" class="editor-content hidden">

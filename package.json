@@ -72,6 +72,12 @@
         "icon": "$(plus)"
       },
       {
+        "command": "nobackend.addRoute",
+        "title": "Adicionar Rota",
+        "category": "NoBackend",
+        "icon": "$(plus)"
+      },
+      {
         "command": "nobackend.startServer",
         "title": "Iniciar Servidor",
         "category": "NoBackend",
@@ -139,19 +145,24 @@
       ],
       "view/item/context": [
         {
+          "command": "nobackend.addRoute",
+          "when": "view == nobackend-servers && viewItem =~ /^server-/",
+          "group": "inline@1"
+        },
+        {
           "command": "nobackend.startServer",
           "when": "view == nobackend-servers && viewItem == server-stopped",
-          "group": "inline@1"
+          "group": "inline@2"
         },
         {
           "command": "nobackend.stopServer",
           "when": "view == nobackend-servers && viewItem == server-running",
-          "group": "inline@1"
+          "group": "inline@2"
         },
         {
           "command": "nobackend.deleteServer",
           "when": "view == nobackend-servers && viewItem =~ /^server-/",
-          "group": "inline@2"
+          "group": "inline@3"
         },
         {
           "command": "nobackend.deleteRoute",

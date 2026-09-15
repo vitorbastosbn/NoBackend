@@ -131,6 +131,13 @@ window.addEventListener('message', (event) => {
       if (msg.openNewServerModal || msg.openNewServerScreen) {
         openNewServerScreen();
       }
+      if (msg.isNewRoute) {
+        focusRoutePathInput();
+      }
+      break;
+
+    case 'newRouteCreated':
+      focusRoutePathInput();
       break;
 
     case 'openNewServerModal':
@@ -188,11 +195,30 @@ function applyViewMode() {
     el.mainLayout.classList.add('route-only');
     if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
     if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
+    if (el.colRoutes) el.colRoutes.classList.add('hidden');
   } else {
     el.mainLayout.classList.remove('route-only');
     if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
-    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.remove('hidden');
+    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
+    if (el.colRoutes) el.colRoutes.classList.add('hidden');
   }
+}
+
+function focusRoutePathInput() {
+  setTimeout(() => {
+    if (el.routePathInput) {
+      el.routePathInput.focus();
+      el.routePathInput.select();
+    }
+  }, 100);
+}
+
+function updatePanelTitle(route) {
+  if (!route) return;
+  vscode.postMessage({
+    type: 'updateTitle',
+    title: `${route.method} ${route.path}`
+  });
 }
 
 // Setup Events
@@ -255,6 +281,7 @@ function setupEventListeners() {
     const route = getSelectedRoute();
     if (route) {
       route.method = e.target.value;
+      updatePanelTitle(route);
       renderRoutesList();
       markDirty();
     }
@@ -268,6 +295,7 @@ function setupEventListeners() {
         pathVal = '/' + pathVal;
       }
       route.path = pathVal;
+      updatePanelTitle(route);
       renderRoutesList();
       markDirty();
     }
@@ -864,8 +892,6 @@ function handleSaveServerScreen() {
   prefix = prefix.replace(/\/+$/, '');
 
   const serverId = 'srv_' + Date.now();
-  const defaultRouteId = 'route_' + Date.now();
-  const defaultRespId = 'resp_' + Date.now();
 
   const newServer = {
     id: serverId,
@@ -874,54 +900,20 @@ function handleSaveServerScreen() {
     prefix,
     cors,
     enabled: true,
-    routes: [
-      {
-        id: defaultRouteId,
-        path: '/status',
-        method: 'GET',
-        description: 'Status do servidor mock',
-        activeResponseId: defaultRespId,
-        responses: [
-          {
-            id: defaultRespId,
-            name: '200 OK',
-            statusCode: 200,
-            delay: 0,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(
-              {
-                status: 'online',
-                server: name,
-                port,
-                message: 'NoBackend Mock Server ativo',
-                timestamp: new Date().toISOString()
-              },
-              null,
-              2
-            )
-          }
-        ]
-      }
-    ]
+    routes: []
   };
 
   if (!state.config.servers) {
     state.config.servers = [];
   }
   state.config.servers.push(newServer);
-  state.selectedServerId = serverId;
-  state.selectedRouteId = defaultRouteId;
-  state.selectedResponseId = defaultRespId;
 
-  // Screen closes upon successful save
-  closeNewServerScreen();
-  renderAll();
-  saveConfig();
-
+  // Send message to extension host to save configuration, show confirmation and close the screen
   vscode.postMessage({
-    type: 'notify',
-    level: 'info',
-    text: `Servidor "${name}" criado com sucesso na porta ${port}!`
+    type: 'saveNewServer',
+    config: state.config,
+    name,
+    port
   });
 }
 
