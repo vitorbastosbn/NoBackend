@@ -142,6 +142,118 @@ async function runTests() {
             body: ''
           }
         ]
+      },
+      {
+        id: 'r_search_qp',
+        path: '/search',
+        method: 'GET',
+        activeResponseId: 'resp_search_200',
+        request: {
+          queryParams: { page: '12' }
+        },
+        responses: [
+          {
+            id: 'resp_search_200',
+            name: '200 Search OK',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: '12', results: ['item1', 'item2'] })
+          }
+        ]
+      },
+      {
+        id: 'r_auth_login',
+        path: '/auth/login',
+        method: 'POST',
+        activeResponseId: 'resp_login_200',
+        request: {
+          queryParams: { page: '12' },
+          body: JSON.stringify({ usuario: 'teste', senha: '123' })
+        },
+        responses: [
+          {
+            id: 'resp_login_200',
+            name: '200 Login OK',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: 'mock-token-xyz' })
+          }
+        ]
+      },
+      {
+        id: 'r_products_vip',
+        path: '/products',
+        method: 'GET',
+        activeResponseId: 'resp_prod_vip',
+        request: {
+          queryParams: { type: 'vip' }
+        },
+        responses: [
+          {
+            id: 'resp_prod_vip',
+            name: '200 VIP Products',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: 'vip', list: ['vip-gold', 'vip-platinum'] })
+          }
+        ]
+      },
+      {
+        id: 'r_products_all',
+        path: '/products',
+        method: 'GET',
+        activeResponseId: 'resp_prod_all',
+        responses: [
+          {
+            id: 'resp_prod_all',
+            name: '200 All Products',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: 'all', list: ['product-1', 'product-2'] })
+          }
+        ]
+      },
+      {
+        id: 'r_sessions_admin',
+        path: '/sessions',
+        method: 'POST',
+        activeResponseId: 'resp_sess_admin',
+        request: {
+          body: JSON.stringify({ role: 'admin' })
+        },
+        responses: [
+          {
+            id: 'resp_sess_admin',
+            name: '200 Admin Session',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: 'admin', permissions: ['*'] })
+          }
+        ]
+      },
+      {
+        id: 'r_sessions_user',
+        path: '/sessions',
+        method: 'POST',
+        activeResponseId: 'resp_sess_user',
+        request: {
+          body: JSON.stringify({ role: 'user' })
+        },
+        responses: [
+          {
+            id: 'resp_sess_user',
+            name: '200 User Session',
+            statusCode: 200,
+            delay: 0,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: 'user', permissions: ['read'] })
+          }
+        ]
       }
     ]
   };
@@ -268,7 +380,126 @@ async function runTests() {
     assert.strictEqual(res9.statusCode, 404);
     console.log('✓ Teste 9 passou: Rota inexistente retornou 404 com JSON explicativo');
 
-    console.log('\n🎉 TODOS OS 9 TESTES PASSARAM COM SUCESSO!');
+    // Test 10: Rota com Query Param esperado (?page=12) -> 200 OK
+    const res10 = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/search?page=12',
+      method: 'GET'
+    });
+    assert.strictEqual(res10.statusCode, 200, 'GET /api/search?page=12 deve retornar 200');
+    assert.strictEqual(JSON.parse(res10.body).page, '12');
+    console.log('✓ Teste 10 passou: Rota com Query Param esperado (?page=12) retornou 200 OK');
+
+    // Test 11: Rota com Query Param ausente (/api/search sem ?page=12) -> 404
+    const res11 = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/search',
+      method: 'GET'
+    });
+    assert.strictEqual(res11.statusCode, 404, 'GET /api/search sem query param deve retornar 404');
+    assert(res11.body.includes('Query param'), 'Resposta deve indicar motivo do 404');
+    console.log('✓ Teste 11 passou: Rota com Query Param ausente retornou 404');
+
+    // Test 12: Rota com Query Param de valor incorreto (?page=99) -> 404
+    const res12 = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/search?page=99',
+      method: 'GET'
+    });
+    assert.strictEqual(res12.statusCode, 404, 'GET /api/search?page=99 deve retornar 404');
+    console.log('✓ Teste 12 passou: Rota com Query Param incorreto retornou 404');
+
+    // Test 13: Rota com Query Param e Payload esperados -> 200 OK
+    const res13 = await makeRequest(
+      {
+        hostname: 'localhost',
+        port: 3099,
+        path: '/api/auth/login?page=12',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      },
+      JSON.stringify({ usuario: 'teste', senha: '123' })
+    );
+    assert.strictEqual(res13.statusCode, 200, 'POST /api/auth/login?page=12 com payload correto deve retornar 200');
+    assert.strictEqual(JSON.parse(res13.body).token, 'mock-token-xyz');
+    console.log('✓ Teste 13 passou: Rota com Query Param e Payload corretos retornou 200 OK');
+
+    // Test 14: Rota com Payload ausente -> 404
+    const res14 = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/auth/login?page=12',
+      method: 'POST'
+    });
+    assert.strictEqual(res14.statusCode, 404, 'POST /api/auth/login sem payload deve retornar 404');
+    console.log('✓ Teste 14 passou: Rota com Payload ausente retornou 404');
+
+    // Test 15: Rota com Payload incorreto (senha errada) -> 404
+    const res15 = await makeRequest(
+      {
+        hostname: 'localhost',
+        port: 3099,
+        path: '/api/auth/login?page=12',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      },
+      JSON.stringify({ usuario: 'teste', senha: 'errada' })
+    );
+    assert.strictEqual(res15.statusCode, 404, 'POST /api/auth/login com payload incorreto deve retornar 404');
+    console.log('✓ Teste 15 passou: Rota com Payload incorreto retornou 404');
+
+    // Test 16: Desambiguação de rotas por Query Param (/products?type=vip vs /products)
+    const res16Vip = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/products?type=vip',
+      method: 'GET'
+    });
+    assert.strictEqual(res16Vip.statusCode, 200);
+    assert.strictEqual(JSON.parse(res16Vip.body).category, 'vip');
+
+    const res16All = await makeRequest({
+      hostname: 'localhost',
+      port: 3099,
+      path: '/api/products',
+      method: 'GET'
+    });
+    assert.strictEqual(res16All.statusCode, 200);
+    assert.strictEqual(JSON.parse(res16All.body).category, 'all');
+    console.log('✓ Teste 16 passou: Desambiguação entre rotas específicas e genéricas por Query Params');
+
+    // Test 17: Desambiguação de rotas por Payload (/sessions com role: admin vs role: user)
+    const res17Admin = await makeRequest(
+      {
+        hostname: 'localhost',
+        port: 3099,
+        path: '/api/sessions',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      },
+      JSON.stringify({ role: 'admin' })
+    );
+    assert.strictEqual(res17Admin.statusCode, 200);
+    assert.strictEqual(JSON.parse(res17Admin.body).role, 'admin');
+
+    const res17User = await makeRequest(
+      {
+        hostname: 'localhost',
+        port: 3099,
+        path: '/api/sessions',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      },
+      JSON.stringify({ role: 'user' })
+    );
+    assert.strictEqual(res17User.statusCode, 200);
+    assert.strictEqual(JSON.parse(res17User.body).role, 'user');
+    console.log('✓ Teste 17 passou: Desambiguação entre rotas por Payload JSON recebido');
+
+    console.log('\n🎉 TODOS OS 17 TESTES PASSARAM COM SUCESSO!');
   } finally {
     await server.stop();
     console.log('✓ Servidor de teste parado');

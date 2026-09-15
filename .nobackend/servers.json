@@ -115,7 +115,12 @@
               },
               "body": "{\n  \"error\": \"BadRequest\",\n  \"errors\": [\n    \"O campo email é obrigatório e deve ser válido.\"\n  ]\n}"
             }
-          ]
+          ],
+          "request": {
+            "headers": {},
+            "queryParams": {},
+            "body": ""
+          }
         },
         {
           "id": "route_get_user_id",
@@ -210,6 +215,30 @@
               "body": ""
             }
           ]
+        },
+        {
+          "id": "route_1789438050343",
+          "path": "/nova-rota",
+          "method": "GET",
+          "description": "",
+          "request": {
+            "headers": {},
+            "queryParams": {},
+            "body": ""
+          },
+          "activeResponseId": "resp_1789438050343",
+          "responses": [
+            {
+              "id": "resp_1789438050343",
+              "name": "Sucesso",
+              "statusCode": 200,
+              "delay": 0,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\n  \"message\": \"Mock gerado com sucesso!\"\n}"
+            }
+          ]
         }
       ]
     },
@@ -226,7 +255,7 @@
           "path": "/auth/login",
           "method": "POST",
           "description": "Autenticação de usuário",
-          "activeResponseId": "resp_auth_login_200",
+          "activeResponseId": "resp_auth_login_401",
           "responses": [
             {
               "id": "resp_auth_login_200",
@@ -251,10 +280,8 @@
           ],
           "request": {
             "headers": {},
-            "queryParams": {
-              "page": "12"
-            },
-            "body": "{\n\"usuario\": \"teste\",\n\"senha\": \"123\" \n}"
+            "queryParams": {},
+            "body": "{\n  \"name\": \"João Silva\",\n  \"email\": \"joao.silva@exemplo.com\",\n  \"role\": \"developer\"\n}"
           }
         }
       ]

@@ -122,26 +122,37 @@ var MockServer = class {
     this.requestCount++;
     const method = (req.method || "GET").toUpperCase();
     const rawUrl = req.url || "/";
-    const parsedPath = rawUrl.split("?")[0];
+    const [parsedPath, ...queryParts] = rawUrl.split("?");
+    const queryString = queryParts.join("?");
+    const searchParams = new URLSearchParams(queryString);
     if (this.config.cors && method === "OPTIONS") {
       this.sendCorsHeaders(res);
       res.writeHead(204);
       res.end();
-      this.logRequest(method, parsedPath, 204, Date.now() - startTime);
+      this.logRequest(method, rawUrl, 204, Date.now() - startTime);
       return;
     }
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      const matched = this.matchRoute(method, parsedPath);
-      if (!matched) {
+      const incomingBody = Buffer.concat(chunks).toString("utf-8");
+      const matchResult = this.matchRoute(method, parsedPath, searchParams, incomingBody, req.headers);
+      if (!matchResult.matched) {
         if (this.config.cors) {
           this.sendCorsHeaders(res);
         }
+        const isCriteriaFailure = matchResult.pathMatchedButCriteriaFailed;
         const notFoundBody = JSON.stringify(
           {
             error: "Not Found",
-            message: `Nenhuma rota mock configurada para [${method}] ${parsedPath}`,
+            message: isCriteriaFailure ? `Nenhuma rota mock para [${method}] ${parsedPath} correspondeu aos query parameters ou payload enviados.` : `Nenhuma rota mock configurada para [${method}] ${parsedPath}`,
+            details: isCriteriaFailure ? {
+              method,
+              url: rawUrl,
+              reason: matchResult.failedReason,
+              receivedQueryParams: Object.fromEntries(searchParams.entries()),
+              receivedBody: incomingBody ? incomingBody : void 0
+            } : void 0,
             server: this.config.name,
             port: this.config.port,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -149,12 +160,15 @@ var MockServer = class {
           null,
           2
         );
+        if (isCriteriaFailure) {
+          this.log(`\u26A0\uFE0F [404] [${method}] ${rawUrl} - ${matchResult.failedReason}`);
+        }
         res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
         res.end(notFoundBody);
-        this.logRequest(method, parsedPath, 404, Date.now() - startTime);
+        this.logRequest(method, rawUrl, 404, Date.now() - startTime);
         return;
       }
-      const { response, params } = matched;
+      const { response, params } = matchResult.matched;
       const delayMs = response.delay || 0;
       setTimeout(() => {
         if (this.config.cors) {
@@ -165,6 +179,9 @@ var MockServer = class {
         for (const [key, value] of Object.entries(params)) {
           bodyContent = bodyContent.split(`:${key}`).join(value);
           bodyContent = bodyContent.split(`{{${key}}}`).join(value);
+        }
+        for (const [key, value] of searchParams.entries()) {
+          bodyContent = bodyContent.split(`{{query.${key}}}`).join(value);
         }
         const hasContentType = Object.keys(headers).some(
           (h) => h.toLowerCase() === "content-type"
@@ -181,11 +198,11 @@ var MockServer = class {
         res.writeHead(statusCode, headers);
         res.end(bodyContent);
         const duration = Date.now() - startTime;
-        this.logRequest(method, parsedPath, statusCode, duration);
+        this.logRequest(method, rawUrl, statusCode, duration);
       }, delayMs);
     });
   }
-  matchRoute(reqMethod, reqPath) {
+  matchRoute(reqMethod, reqPath, searchParams, incomingBody, headers) {
     const serverPrefix = (this.config.prefix || "").trim().replace(/\/+$/, "");
     let normalizedPath = reqPath;
     if (serverPrefix && normalizedPath.startsWith(serverPrefix)) {
@@ -194,30 +211,305 @@ var MockServer = class {
         normalizedPath = "/" + normalizedPath;
       }
     }
+    const candidates = [];
+    let pathMatchedCount = 0;
+    const failureReasons = [];
     for (const route of this.config.routes) {
       if (route.method.toUpperCase() !== reqMethod) {
         continue;
       }
       const params = this.matchPattern(route.path, normalizedPath);
-      if (params !== null) {
-        let activeResponse = route.responses.find((r) => r.id === route.activeResponseId);
-        if (!activeResponse && route.responses.length > 0) {
-          activeResponse = route.responses[0];
+      if (params === null) {
+        continue;
+      }
+      pathMatchedCount++;
+      const qpResult = this.checkQueryParams(route.request?.queryParams, searchParams);
+      if (!qpResult.matches) {
+        failureReasons.push(`[${route.method} ${route.path}]: ${qpResult.reason}`);
+        continue;
+      }
+      const bodyResult = this.checkBody(route.request?.body, incomingBody);
+      if (!bodyResult.matches) {
+        failureReasons.push(`[${route.method} ${route.path}]: ${bodyResult.reason}`);
+        continue;
+      }
+      const headerResult = this.checkHeaders(route.request?.headers, headers);
+      if (!headerResult.matches) {
+        failureReasons.push(`[${route.method} ${route.path}]: ${headerResult.reason}`);
+        continue;
+      }
+      const specificityScore = this.calculateSpecificity(
+        route,
+        params,
+        qpResult.matchedCount,
+        bodyResult.matchedCount,
+        headerResult.matchedCount
+      );
+      candidates.push({
+        route,
+        params,
+        specificityScore
+      });
+    }
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.specificityScore - a.specificityScore);
+      const best = candidates[0];
+      let activeResponse = best.route.responses.find((r) => r.id === best.route.activeResponseId);
+      if (!activeResponse && best.route.responses.length > 0) {
+        activeResponse = best.route.responses[0];
+      }
+      if (!activeResponse) {
+        activeResponse = {
+          id: "default",
+          name: "200 OK",
+          statusCode: 200,
+          delay: 0,
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        };
+      }
+      return {
+        matched: {
+          route: best.route,
+          response: activeResponse,
+          params: best.params
         }
-        if (!activeResponse) {
-          activeResponse = {
-            id: "default",
-            name: "200 OK",
-            statusCode: 200,
-            delay: 0,
-            headers: { "Content-Type": "application/json" },
-            body: "{}"
+      };
+    }
+    return {
+      matched: null,
+      pathMatchedButCriteriaFailed: pathMatchedCount > 0,
+      failedReason: failureReasons.join(" | ")
+    };
+  }
+  checkQueryParams(expectedParams, actualParams) {
+    if (!expectedParams) {
+      return { matches: true, matchedCount: 0 };
+    }
+    const entries = Object.entries(expectedParams).filter(([k]) => k.trim().length > 0);
+    if (entries.length === 0) {
+      return { matches: true, matchedCount: 0 };
+    }
+    let matchedCount = 0;
+    for (const [key, expectedVal] of entries) {
+      const trimmedKey = key.trim();
+      if (!actualParams.has(trimmedKey)) {
+        return {
+          matches: false,
+          matchedCount,
+          reason: `Query param obrigat\xF3rio "${trimmedKey}" n\xE3o foi enviado na requisi\xE7\xE3o.`
+        };
+      }
+      const trimmedVal = expectedVal.trim();
+      if (trimmedVal.length > 0) {
+        const actualVal = actualParams.get(trimmedKey) ?? "";
+        const isMatch = actualVal === trimmedVal || decodeURIComponent(actualVal) === decodeURIComponent(trimmedVal);
+        if (!isMatch) {
+          return {
+            matches: false,
+            matchedCount,
+            reason: `Query param "${trimmedKey}" possui valor "${actualVal}", mas era esperado "${trimmedVal}".`
           };
         }
-        return { route, response: activeResponse, params };
+      }
+      matchedCount++;
+    }
+    return { matches: true, matchedCount };
+  }
+  checkBody(expectedBody, actualBody) {
+    if (!expectedBody || expectedBody.trim().length === 0) {
+      return { matches: true, matchedCount: 0 };
+    }
+    const trimmedExpected = expectedBody.trim();
+    const trimmedActual = actualBody.trim();
+    if (trimmedActual.length === 0) {
+      return {
+        matches: false,
+        matchedCount: 0,
+        reason: "Payload esperado n\xE3o foi enviado no corpo da requisi\xE7\xE3o."
+      };
+    }
+    let expectedJson;
+    let isExpectedJson = false;
+    try {
+      expectedJson = JSON.parse(trimmedExpected);
+      isExpectedJson = true;
+    } catch {
+      isExpectedJson = false;
+    }
+    if (isExpectedJson) {
+      let actualJson;
+      let isActualJson = false;
+      try {
+        actualJson = JSON.parse(trimmedActual);
+        isActualJson = true;
+      } catch {
+        isActualJson = false;
+      }
+      if (!isActualJson) {
+        try {
+          const params = new URLSearchParams(trimmedActual);
+          const obj = {};
+          let hasKeys = false;
+          for (const [k, v] of params.entries()) {
+            obj[k] = v;
+            hasKeys = true;
+          }
+          if (hasKeys) {
+            actualJson = obj;
+            isActualJson = true;
+          }
+        } catch {
+        }
+      }
+      if (!isActualJson) {
+        return {
+          matches: false,
+          matchedCount: 0,
+          reason: "O corpo da requisi\xE7\xE3o n\xE3o \xE9 um JSON v\xE1lido correspondente ao payload esperado."
+        };
+      }
+      const matchRes = this.deepMatches(expectedJson, actualJson);
+      if (!matchRes.matches) {
+        return {
+          matches: false,
+          matchedCount: 0,
+          reason: matchRes.reason || "O JSON enviado n\xE3o corresponde aos dados esperados."
+        };
+      }
+      return {
+        matches: true,
+        matchedCount: matchRes.score
+      };
+    }
+    if (trimmedActual === trimmedExpected) {
+      return { matches: true, matchedCount: 1 };
+    }
+    return {
+      matches: false,
+      matchedCount: 0,
+      reason: "O corpo de texto enviado n\xE3o coincide exatamente com o payload esperado."
+    };
+  }
+  deepMatches(expected, actual, path = "") {
+    if (expected === null || expected === void 0) {
+      const ok = actual === expected;
+      return {
+        matches: ok,
+        score: ok ? 1 : 0,
+        reason: ok ? void 0 : `Campo "${path || "raiz"}" esperado ${expected}, mas recebido ${actual}.`
+      };
+    }
+    if (typeof expected !== "object") {
+      const exactMatch = expected === actual;
+      const looseMatch = typeof actual !== "object" && actual !== null && actual !== void 0 && String(expected).trim() === String(actual).trim();
+      const ok = exactMatch || looseMatch;
+      return {
+        matches: ok,
+        score: ok ? 1 : 0,
+        reason: ok ? void 0 : `Campo "${path || "raiz"}" esperado "${expected}", mas recebido "${actual}".`
+      };
+    }
+    if (Array.isArray(expected)) {
+      if (!Array.isArray(actual)) {
+        return {
+          matches: false,
+          score: 0,
+          reason: `Campo "${path || "raiz"}" deveria ser uma lista (Array).`
+        };
+      }
+      if (expected.length !== actual.length) {
+        return {
+          matches: false,
+          score: 0,
+          reason: `Lista "${path || "raiz"}" esperava ${expected.length} itens, mas recebeu ${actual.length}.`
+        };
+      }
+      let totalScore2 = 1;
+      for (let i = 0; i < expected.length; i++) {
+        const itemRes = this.deepMatches(expected[i], actual[i], `${path}[${i}]`);
+        if (!itemRes.matches) {
+          return itemRes;
+        }
+        totalScore2 += itemRes.score;
+      }
+      return { matches: true, score: totalScore2 };
+    }
+    if (typeof actual !== "object" || actual === null || Array.isArray(actual)) {
+      return {
+        matches: false,
+        score: 0,
+        reason: `Campo "${path || "raiz"}" deveria ser um objeto.`
+      };
+    }
+    const expectedKeys = Object.keys(expected);
+    let totalScore = 1;
+    for (const key of expectedKeys) {
+      const currentPath = path ? `${path}.${key}` : key;
+      if (!(key in actual)) {
+        return {
+          matches: false,
+          score: 0,
+          reason: `Campo "${currentPath}" ausente no payload enviado.`
+        };
+      }
+      const propRes = this.deepMatches(expected[key], actual[key], currentPath);
+      if (!propRes.matches) {
+        return propRes;
+      }
+      totalScore += propRes.score;
+    }
+    return { matches: true, score: totalScore };
+  }
+  checkHeaders(expectedHeaders, actualHeaders) {
+    if (!expectedHeaders) {
+      return { matches: true, matchedCount: 0 };
+    }
+    const entries = Object.entries(expectedHeaders).filter(([k]) => k.trim().length > 0);
+    if (entries.length === 0) {
+      return { matches: true, matchedCount: 0 };
+    }
+    let matchedCount = 0;
+    for (const [key, expectedVal] of entries) {
+      const lowerKey = key.trim().toLowerCase();
+      const actualVal = actualHeaders[lowerKey];
+      if (actualVal === void 0) {
+        return {
+          matches: false,
+          matchedCount,
+          reason: `Header obrigat\xF3rio "${key}" n\xE3o foi enviado.`
+        };
+      }
+      const trimmedExpected = expectedVal.trim();
+      if (trimmedExpected.length > 0) {
+        const valStr = Array.isArray(actualVal) ? actualVal.join(", ") : actualVal;
+        const isMatch = valStr === trimmedExpected || valStr.toLowerCase() === trimmedExpected.toLowerCase();
+        if (!isMatch) {
+          return {
+            matches: false,
+            matchedCount,
+            reason: `Header "${key}" possui valor "${valStr}", mas era esperado "${trimmedExpected}".`
+          };
+        }
+      }
+      matchedCount++;
+    }
+    return { matches: true, matchedCount };
+  }
+  calculateSpecificity(route, params, qpMatchedCount, bodyMatchedCount, headerMatchedCount) {
+    let score = 100;
+    const segments = route.path.split("/").filter(Boolean);
+    for (const seg of segments) {
+      if (seg.startsWith(":")) {
+        score += 1;
+      } else {
+        score += 5;
       }
     }
-    return null;
+    score += qpMatchedCount * 20;
+    score += bodyMatchedCount * 25;
+    score += headerMatchedCount * 10;
+    return score;
   }
   matchPattern(routePattern, requestPath) {
     const patternSegments = routePattern.split("/").filter(Boolean);
