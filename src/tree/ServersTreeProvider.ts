@@ -73,10 +73,10 @@ export class RouteTreeItem extends vscode.TreeItem {
       `- **Variantes configuradas:** ${route.responses.length}`
     );
 
-    // Clicking a route opens the dashboard focused on that server
+    // Clicking a route opens the screen with information of only that route
     this.command = {
-      command: 'nobackend.openDashboard',
-      title: 'Abrir no Dashboard',
+      command: 'nobackend.openRoute',
+      title: 'Abrir Configuração da Rota',
       arguments: [server.id, route.id]
     };
   }

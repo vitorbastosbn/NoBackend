@@ -121,6 +121,12 @@ body {
   display: none !important;
 }
 
+.main-layout.route-only .editor-content {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 .server-badge {
   font-size: 12px;
   font-family: var(--font-mono);

@@ -160,6 +160,13 @@ window.addEventListener('message', (event) => {
       }
       if (msg.routeId) {
         state.selectedRouteId = msg.routeId;
+        const currentServer = state.config.servers.find((s) => s.id === state.selectedServerId);
+        if (currentServer) {
+          const currentRoute = currentServer.routes.find((r) => r.id === msg.routeId);
+          if (currentRoute) {
+            state.selectedResponseId = currentRoute.activeResponseId || (currentRoute.responses[0] ? currentRoute.responses[0].id : null);
+          }
+        }
       }
       if (msg.viewMode) {
         state.viewMode = msg.viewMode;
@@ -177,11 +184,14 @@ window.addEventListener('message', (event) => {
 function applyViewMode() {
   if (state.viewMode === 'route') {
     el.mainLayout.classList.add('route-only');
-    el.btnToggleRoutesCol.classList.remove('hidden');
-    el.toggleRoutesText.textContent = 'Ver Rotas';
+    if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
+    if (el.btnAddServerTop) el.btnAddServerTop.classList.add('hidden');
+    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
   } else {
     el.mainLayout.classList.remove('route-only');
-    el.btnToggleRoutesCol.classList.add('hidden');
+    if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
+    if (el.btnAddServerTop) el.btnAddServerTop.classList.remove('hidden');
+    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.remove('hidden');
   }
 }
 

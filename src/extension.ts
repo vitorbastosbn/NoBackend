@@ -65,7 +65,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           configStorage,
           serverManager!,
           targetServerId,
-          routeId
+          routeId,
+          routeId ? 'route' : 'server'
+        );
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'nobackend.openRoute',
+      (serverId: string, routeId: string) => {
+        DashboardPanel.createOrShow(
+          context.extensionUri,
+          configStorage,
+          serverManager!,
+          serverId,
+          routeId,
+          'route'
         );
       }
     )

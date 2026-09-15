@@ -61,6 +61,11 @@
         "icon": "$(dashboard)"
       },
       {
+        "command": "nobackend.openRoute",
+        "title": "Abrir Configuração da Rota",
+        "category": "NoBackend"
+      },
+      {
         "command": "nobackend.addServer",
         "title": "Adicionar Novo Servidor",
         "category": "NoBackend",
@@ -106,29 +111,24 @@
     "menus": {
       "view/title": [
         {
-          "command": "nobackend.openDashboard",
+          "command": "nobackend.addServer",
           "when": "view == nobackend-servers",
           "group": "navigation@1"
         },
         {
-          "command": "nobackend.addServer",
+          "command": "nobackend.startAll",
           "when": "view == nobackend-servers",
           "group": "navigation@2"
         },
         {
-          "command": "nobackend.startAll",
+          "command": "nobackend.stopAll",
           "when": "view == nobackend-servers",
           "group": "navigation@3"
         },
         {
-          "command": "nobackend.stopAll",
-          "when": "view == nobackend-servers",
-          "group": "navigation@4"
-        },
-        {
           "command": "nobackend.openConfigFile",
           "when": "view == nobackend-servers",
-          "group": "navigation@5"
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -143,14 +143,9 @@
           "group": "inline@1"
         },
         {
-          "command": "nobackend.openDashboard",
-          "when": "view == nobackend-servers",
-          "group": "inline@2"
-        },
-        {
           "command": "nobackend.deleteServer",
           "when": "view == nobackend-servers",
-          "group": "inline@3"
+          "group": "inline@2"
         }
       ]
     }

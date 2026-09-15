@@ -84,6 +84,16 @@ export class DashboardPanel {
       }
       DashboardPanel.currentPanel.currentViewMode = viewMode;
 
+      if (initialServerId && initialRouteId) {
+        configStorage.loadConfig().then((cfg) => {
+          const srv = cfg.servers.find((s) => s.id === initialServerId);
+          const r = srv?.routes.find((rt) => rt.id === initialRouteId);
+          if (r && DashboardPanel.currentPanel) {
+            DashboardPanel.currentPanel._panel.title = `${r.method} ${r.path}`;
+          }
+        });
+      }
+
       DashboardPanel.currentPanel._panel.webview.postMessage({
         type: 'selectTarget',
         serverId: initialServerId,
@@ -113,6 +123,16 @@ export class DashboardPanel {
         ]
       }
     );
+
+    if (initialServerId && initialRouteId) {
+      configStorage.loadConfig().then((cfg) => {
+        const srv = cfg.servers.find((s) => s.id === initialServerId);
+        const r = srv?.routes.find((rt) => rt.id === initialRouteId);
+        if (r && panel) {
+          panel.title = `${r.method} ${r.path}`;
+        }
+      });
+    }
 
     DashboardPanel.currentPanel = new DashboardPanel(
       panel,
