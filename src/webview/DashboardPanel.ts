@@ -215,6 +215,11 @@ export class DashboardPanel {
         vscode.window.showInformationMessage(`Copiado para a área de transferência: ${message.text}`);
         break;
       }
+      case 'closeScreen':
+      case 'close': {
+        this.dispose();
+        break;
+      }
       case 'notify': {
         if (message.level === 'error') {
           vscode.window.showErrorMessage(message.text);
@@ -238,6 +243,8 @@ export class DashboardPanel {
 
     const nonce = getNonce();
 
+    const isNewServerInitial = this.shouldOpenNewServerModal;
+
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -250,7 +257,7 @@ export class DashboardPanel {
 <body>
   <div class="app-container">
     <!-- Header bar -->
-    <header class="top-bar">
+    <header class="top-bar ${isNewServerInitial ? 'hidden' : ''}">
       <div class="brand">
         <div class="brand-icon">⚡</div>
         <div class="brand-title">NoBackend</div>
@@ -260,26 +267,17 @@ export class DashboardPanel {
         <button id="btn-toggle-routes-col" class="btn btn-outline hidden" title="Alternar visualização da lista de rotas">
           <span class="icon">☰</span> <span id="toggle-routes-text">Ver Rotas</span>
         </button>
-        <button id="btn-add-server-top" class="btn btn-outline" title="Cadastrar Novo Servidor Mock">
-          + Novo Servidor
-        </button>
-        <button id="btn-server-status-toggle" class="btn btn-sm" title="Iniciar/Parar Servidor">
-          ● Rodando
-        </button>
         <button id="btn-add-route-top" class="btn btn-primary" title="Adicionar Nova Rota">
           + Nova Rota
         </button>
-        <button id="btn-open-json" class="btn btn-outline" title="Abrir .nobackend/servers.json no editor">
-          📄 JSON
-        </button>
         <button id="btn-save-all" class="btn btn-success" title="Salvar todas as alterações (Ctrl+S)">
-          💾 Salvar
+          Salvar
         </button>
       </div>
     </header>
 
     <!-- Main 2-column / 1-column workspace (Routes + Editor) -->
-    <main class="main-layout" id="main-layout">
+    <main class="main-layout ${isNewServerInitial ? 'hidden' : ''}" id="main-layout">
       <!-- Column 1: Routes List of current server -->
       <aside class="col-routes" id="col-routes">
         <div class="col-header">
@@ -436,21 +434,13 @@ export class DashboardPanel {
     </main>
 
     <!-- Screen for New Server Registration (Full screen view, not a floating modal) -->
-    <section id="new-server-screen" class="new-server-screen hidden">
+    <section id="new-server-screen" class="new-server-screen ${isNewServerInitial ? '' : 'hidden'}">
       <div class="screen-container">
-        <div class="screen-header">
-          <div class="screen-header-left">
-            <button id="btn-screen-back" class="btn btn-outline" title="Voltar sem salvar">
-              ← Voltar
-            </button>
-            <div class="screen-title-group">
-              <h2>Cadastrar Novo Servidor Mock</h2>
-              <p class="screen-subtitle">Defina as configurações de porta, prefixo e CORS para criar um novo servidor.</p>
-            </div>
-          </div>
-        </div>
-
         <div class="screen-card">
+          <div class="form-title-group">
+            <h2>Cadastrar Novo Servidor Mock</h2>
+            <p class="form-subtitle">Defina as configurações de porta, prefixo e CORS para criar um novo servidor.</p>
+          </div>
           <div class="form-section">
             <div class="form-group">
               <label for="modal-server-name">Nome do Servidor <span class="required">*</span></label>
@@ -486,7 +476,7 @@ export class DashboardPanel {
           <div class="screen-actions">
             <button id="btn-modal-cancel" class="btn btn-outline">Cancelar</button>
             <button id="btn-modal-save" class="btn btn-primary btn-lg">
-              💾 Salvar Servidor
+              Salvar
             </button>
           </div>
         </div>

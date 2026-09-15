@@ -41,13 +41,11 @@ let state = {
 // DOM Elements
 const el = {
   // Top bar
+  topBar: document.querySelector('.top-bar'),
   topServerBadge: document.getElementById('top-server-badge'),
   btnToggleRoutesCol: document.getElementById('btn-toggle-routes-col'),
   toggleRoutesText: document.getElementById('toggle-routes-text'),
-  btnAddServerTop: document.getElementById('btn-add-server-top'),
-  btnServerStatusToggle: document.getElementById('btn-server-status-toggle'),
   btnAddRouteTop: document.getElementById('btn-add-route-top'),
-  btnOpenJson: document.getElementById('btn-open-json'),
   btnSaveAll: document.getElementById('btn-save-all'),
 
   // Layout & Columns
@@ -61,7 +59,6 @@ const el = {
 
   // New Server Screen
   newServerScreen: document.getElementById('new-server-screen'),
-  btnScreenBack: document.getElementById('btn-screen-back'),
   modalServerName: document.getElementById('modal-server-name'),
   modalServerPort: document.getElementById('modal-server-port'),
   modalServerPrefix: document.getElementById('modal-server-prefix'),
@@ -146,6 +143,11 @@ window.addEventListener('message', (event) => {
       if (msg.statusList) {
         state.statusList = msg.statusList;
       }
+      const activeSrv = getSelectedServer();
+      if (activeSrv && activeSrv.routes && !activeSrv.routes.some((r) => r.id === state.selectedRouteId)) {
+        state.selectedRouteId = activeSrv.routes.length > 0 ? activeSrv.routes[0].id : null;
+        state.selectedResponseId = activeSrv.routes[0] ? (activeSrv.routes[0].activeResponseId || (activeSrv.routes[0].responses[0] ? activeSrv.routes[0].responses[0].id : null)) : null;
+      }
       renderAll();
       break;
 
@@ -185,12 +187,10 @@ function applyViewMode() {
   if (state.viewMode === 'route') {
     el.mainLayout.classList.add('route-only');
     if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
-    if (el.btnAddServerTop) el.btnAddServerTop.classList.add('hidden');
     if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
   } else {
     el.mainLayout.classList.remove('route-only');
     if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
-    if (el.btnAddServerTop) el.btnAddServerTop.classList.remove('hidden');
     if (el.btnAddRouteTop) el.btnAddRouteTop.classList.remove('hidden');
   }
 }
@@ -198,21 +198,18 @@ function applyViewMode() {
 // Setup Events
 function setupEventListeners() {
   // Top actions
-  el.btnToggleRoutesCol.addEventListener('click', () => {
-    const isOnly = el.mainLayout.classList.toggle('route-only');
-    el.toggleRoutesText.textContent = isOnly ? 'Ver Rotas' : 'Ocultar Rotas';
-  });
-
-  if (el.btnAddServerTop) {
-    el.btnAddServerTop.addEventListener('click', () => openNewServerScreen());
+  if (el.btnToggleRoutesCol) {
+    el.btnToggleRoutesCol.addEventListener('click', () => {
+      const isOnly = el.mainLayout.classList.toggle('route-only');
+      el.toggleRoutesText.textContent = isOnly ? 'Ver Rotas' : 'Ocultar Rotas';
+    });
   }
 
   // New Server Screen events
-  if (el.btnScreenBack) {
-    el.btnScreenBack.addEventListener('click', () => closeNewServerScreen());
-  }
   if (el.btnModalCancel) {
-    el.btnModalCancel.addEventListener('click', () => closeNewServerScreen());
+    el.btnModalCancel.addEventListener('click', () => {
+      vscode.postMessage({ type: 'closeScreen' });
+    });
   }
   if (el.btnModalSave) {
     el.btnModalSave.addEventListener('click', () => handleSaveServerScreen());
@@ -232,21 +229,20 @@ function setupEventListeners() {
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && el.newServerScreen && !el.newServerScreen.classList.contains('hidden')) {
-      closeNewServerScreen();
+      vscode.postMessage({ type: 'closeScreen' });
     }
   });
 
-  el.btnServerStatusToggle.addEventListener('click', () => {
-    if (state.selectedServerId) {
-      vscode.postMessage({ type: 'toggleServer', serverId: state.selectedServerId });
-    }
-  });
+  if (el.btnAddRouteTop) {
+    el.btnAddRouteTop.addEventListener('click', () => handleAddRoute());
+  }
+  if (el.btnAddRoute) {
+    el.btnAddRoute.addEventListener('click', () => handleAddRoute());
+  }
 
-  el.btnAddRouteTop.addEventListener('click', () => handleAddRoute());
-  el.btnAddRoute.addEventListener('click', () => handleAddRoute());
-
-  el.btnOpenJson.addEventListener('click', () => vscode.postMessage({ type: 'openConfigFile' }));
-  el.btnSaveAll.addEventListener('click', () => saveConfig());
+  if (el.btnSaveAll) {
+    el.btnSaveAll.addEventListener('click', () => saveConfig());
+  }
 
   // Filter
   el.inputRouteFilter.addEventListener('input', (e) => {
@@ -497,28 +493,17 @@ function renderAll() {
 function renderHeader() {
   const server = getSelectedServer();
   if (!server) {
-    el.topServerBadge.textContent = 'Nenhum servidor';
-    el.btnServerStatusToggle.classList.add('hidden');
+    if (el.topServerBadge) el.topServerBadge.textContent = 'Nenhum servidor';
     return;
   }
 
-  const status = state.statusList.find((st) => st.serverId === server.id);
-  const isRunning = status ? status.running : false;
-
-  el.topServerBadge.innerHTML = `${server.name} <span class="badge-port">:${server.port}</span>`;
-
-  el.btnServerStatusToggle.classList.remove('hidden');
-  if (isRunning) {
-    el.btnServerStatusToggle.className = 'btn btn-sm btn-success';
-    el.btnServerStatusToggle.innerHTML = `● Rodando (Porta :${server.port})`;
-    el.btnServerStatusToggle.title = 'Clique para parar este servidor';
-  } else {
-    el.btnServerStatusToggle.className = 'btn btn-sm btn-secondary';
-    el.btnServerStatusToggle.innerHTML = `○ Iniciar (: ${server.port})`;
-    el.btnServerStatusToggle.title = 'Clique para iniciar este servidor';
+  if (el.topServerBadge) {
+    el.topServerBadge.innerHTML = `${server.name} <span class="badge-port">:${server.port}</span>`;
   }
 
-  el.routesColTitle.textContent = server.name;
+  if (el.routesColTitle) {
+    el.routesColTitle.textContent = server.name;
+  }
 }
 
 function renderRoutesList() {
@@ -820,6 +805,9 @@ function openNewServerScreen() {
   el.modalServerPrefix.value = '/api';
   el.modalServerCors.checked = true;
 
+  if (el.topBar) {
+    el.topBar.classList.add('hidden');
+  }
   if (el.mainLayout) {
     el.mainLayout.classList.add('hidden');
   }
@@ -834,6 +822,9 @@ function openNewServerScreen() {
 function closeNewServerScreen() {
   if (el.newServerScreen) {
     el.newServerScreen.classList.add('hidden');
+  }
+  if (el.topBar) {
+    el.topBar.classList.remove('hidden');
   }
   if (el.mainLayout) {
     el.mainLayout.classList.remove('hidden');

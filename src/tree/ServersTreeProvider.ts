@@ -6,11 +6,13 @@ import { ServerConfig, RouteConfig } from '../models/types';
 export class ServerTreeItem extends vscode.TreeItem {
   constructor(
     public readonly server: ServerConfig,
-    public readonly isRunning: boolean
+    public readonly isRunning: boolean,
+    collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Collapsed,
+    epoch: number = 0
   ) {
-    super(server.name, vscode.TreeItemCollapsibleState.Collapsed);
+    super(server.name, collapsibleState);
 
-    this.id = `server_${server.id}`;
+    this.id = `server_${server.id}_${epoch}`;
     this.description = `:${server.port}`;
     this.contextValue = isRunning ? 'server-running' : 'server-stopped';
 
@@ -34,14 +36,15 @@ export class ServerTreeItem extends vscode.TreeItem {
 export class RouteTreeItem extends vscode.TreeItem {
   constructor(
     public readonly server: ServerConfig,
-    public readonly route: RouteConfig
+    public readonly route: RouteConfig,
+    epoch: number = 0
   ) {
     const activeResponse = route.responses.find((r) => r.id === route.activeResponseId) || route.responses[0];
     const statusText = activeResponse ? `${activeResponse.statusCode}` : '200';
 
     super(`${route.method} ${route.path}`, vscode.TreeItemCollapsibleState.None);
 
-    this.id = `route_${server.id}_${route.id}`;
+    this.id = `route_${server.id}_${route.id}_${epoch}`;
     this.description = `[${statusText}] ${activeResponse?.name || ''}`;
     this.contextValue = 'route-item';
 
@@ -85,6 +88,8 @@ export class RouteTreeItem extends vscode.TreeItem {
 export class ServersTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private expandedServerIds = new Set<string>();
+  private selectionEpoch = 0;
 
   constructor(
     private readonly configStorage: ConfigStorage,
@@ -92,6 +97,19 @@ export class ServersTreeProvider implements vscode.TreeDataProvider<vscode.TreeI
   ) {
     this.configStorage.onDidChangeConfig(() => this.refresh());
     this.serverManager.onDidChangeStatus(() => this.refresh());
+  }
+
+  public setServerExpanded(serverId: string, expanded: boolean): void {
+    if (expanded) {
+      this.expandedServerIds.add(serverId);
+    } else {
+      this.expandedServerIds.delete(serverId);
+    }
+  }
+
+  public clearSelection(): void {
+    this.selectionEpoch++;
+    this._onDidChangeTreeData.fire();
   }
 
   public refresh(): void {
@@ -109,13 +127,17 @@ export class ServersTreeProvider implements vscode.TreeDataProvider<vscode.TreeI
       // Return servers list
       return config.servers.map((srv) => {
         const isRunning = this.serverManager.getStatus(srv.id)?.running ?? false;
-        return new ServerTreeItem(srv, isRunning);
+        const isExpanded = this.expandedServerIds.has(srv.id);
+        const collapsibleState = isExpanded
+          ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.Collapsed;
+        return new ServerTreeItem(srv, isRunning, collapsibleState, this.selectionEpoch);
       });
     }
 
     if (element instanceof ServerTreeItem) {
       // Return routes of this server
-      return element.server.routes.map((route) => new RouteTreeItem(element.server, route));
+      return element.server.routes.map((route) => new RouteTreeItem(element.server, route, this.selectionEpoch));
     }
 
     return [];

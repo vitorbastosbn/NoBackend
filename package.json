@@ -102,6 +102,12 @@
         "icon": "$(trash)"
       },
       {
+        "command": "nobackend.deleteRoute",
+        "title": "Excluir Rota",
+        "category": "NoBackend",
+        "icon": "$(trash)"
+      },
+      {
         "command": "nobackend.openConfigFile",
         "title": "Abrir Configuração (.nobackend/servers.json)",
         "category": "NoBackend",
@@ -113,22 +119,22 @@
         {
           "command": "nobackend.addServer",
           "when": "view == nobackend-servers",
-          "group": "navigation@1"
+          "group": "navigation"
         },
         {
           "command": "nobackend.startAll",
           "when": "view == nobackend-servers",
-          "group": "navigation@2"
+          "group": "1_actions@1"
         },
         {
           "command": "nobackend.stopAll",
           "when": "view == nobackend-servers",
-          "group": "navigation@3"
+          "group": "1_actions@2"
         },
         {
           "command": "nobackend.openConfigFile",
           "when": "view == nobackend-servers",
-          "group": "navigation@4"
+          "group": "1_actions@3"
         }
       ],
       "view/item/context": [
@@ -144,7 +150,12 @@
         },
         {
           "command": "nobackend.deleteServer",
-          "when": "view == nobackend-servers",
+          "when": "view == nobackend-servers && viewItem =~ /^server-/",
+          "group": "inline@2"
+        },
+        {
+          "command": "nobackend.deleteRoute",
+          "when": "view == nobackend-servers && viewItem == route-item",
           "group": "inline@2"
         }
       ]

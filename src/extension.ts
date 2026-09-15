@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ConfigStorage } from './storage/ConfigStorage';
 import { ServerManager } from './server/ServerManager';
-import { ServersTreeProvider, ServerTreeItem } from './tree/ServersTreeProvider';
+import { ServersTreeProvider, ServerTreeItem, RouteTreeItem } from './tree/ServersTreeProvider';
 import { DashboardPanel } from './webview/DashboardPanel';
 
 let serverManager: ServerManager | undefined;
@@ -27,6 +27,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     showCollapseAll: true
   });
   context.subscriptions.push(treeView);
+
+  treeView.onDidExpandElement((e) => {
+    if (e.element instanceof ServerTreeItem) {
+      treeProvider.setServerExpanded(e.element.server.id, true);
+    }
+  });
+
+  treeView.onDidCollapseElement((e) => {
+    if (e.element instanceof ServerTreeItem) {
+      treeProvider.setServerExpanded(e.element.server.id, false);
+    }
+  });
+
+  treeView.onDidChangeSelection((e) => {
+    if (e.selection.length > 0) {
+      setTimeout(() => {
+        treeProvider.clearSelection();
+      }, 50);
+    }
+  });
 
   // Status Bar Item
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -155,6 +175,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         config.servers = config.servers.filter((s) => s.id !== server.id);
         await configStorage.saveConfig(config);
         vscode.window.showInformationMessage(`Servidor "${server.name}" excluído.`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nobackend.deleteRoute', async (item?: RouteTreeItem) => {
+      if (!item || !(item instanceof RouteTreeItem)) return;
+      const confirm = await vscode.window.showWarningMessage(
+        `Tem certeza de que deseja excluir a rota "${item.route.method} ${item.route.path}"?`,
+        { modal: true },
+        'Sim, excluir'
+      );
+      if (confirm === 'Sim, excluir') {
+        const config = await configStorage.loadConfig();
+        const server = config.servers.find((s) => s.id === item.server.id);
+        if (server) {
+          server.routes = server.routes.filter((r) => r.id !== item.route.id);
+          await configStorage.saveConfig(config);
+          vscode.window.showInformationMessage(`Rota "${item.route.method} ${item.route.path}" excluída.`);
+        }
       }
     })
   );
