@@ -159,8 +159,27 @@ export class DashboardPanel {
     return DashboardPanel.currentPanel;
   }
 
+  public static closeIfRouteOpen(routeId: string): void {
+    if (DashboardPanel.currentPanel && DashboardPanel.currentPanel.currentRouteId === routeId) {
+      DashboardPanel.currentPanel.dispose();
+    }
+  }
+
+  public static closeIfServerOpen(serverId: string): void {
+    if (DashboardPanel.currentPanel && DashboardPanel.currentPanel.currentServerId === serverId) {
+      DashboardPanel.currentPanel.dispose();
+    }
+  }
+
   private async handleWebviewMessage(message: any): Promise<void> {
     switch (message.type) {
+      case 'routeSelected': {
+        this.currentRouteId = message.routeId;
+        if (message.serverId) {
+          this.currentServerId = message.serverId;
+        }
+        break;
+      }
       case 'ready': {
         const config = await this.configStorage.loadConfig();
         const statusList = this.serverManager.getAllStatus();
@@ -388,12 +407,6 @@ export class DashboardPanel {
                     </svg>
                     <span>cURL</span>
                   </button>
-                  <button id="btn-delete-route" class="btn btn-danger-outline btn-icon-only" title="Excluir Rota">
-                    <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
                 </div>
               </div>
             </div>
@@ -537,26 +550,22 @@ export class DashboardPanel {
                       <select id="resp-status-quick">
                         <option value="200">200 OK</option>
                         <option value="201">201 Created</option>
+                        <option value="202">202 Accepted</option>
                         <option value="204">204 No Content</option>
+                        <option value="301">301 Moved Permanently</option>
+                        <option value="302">302 Found</option>
                         <option value="400">400 Bad Request</option>
                         <option value="401">401 Unauthorized</option>
                         <option value="403">403 Forbidden</option>
                         <option value="404">404 Not Found</option>
+                        <option value="409">409 Conflict</option>
                         <option value="422">422 Unprocessable Entity</option>
                         <option value="500">500 Internal Server Error</option>
+                        <option value="502">502 Bad Gateway</option>
+                        <option value="503">503 Service Unavailable</option>
                         <option value="custom">Outro...</option>
                       </select>
-                      <input type="number" id="resp-status-code" min="100" max="599" value="200" />
-                    </div>
-                    <!-- Quick status pills -->
-                    <div class="quick-status-pills">
-                      <button type="button" class="btn-pill-status s2xx" data-code="200">200</button>
-                      <button type="button" class="btn-pill-status s2xx" data-code="201">201</button>
-                      <button type="button" class="btn-pill-status s2xx" data-code="204">204</button>
-                      <button type="button" class="btn-pill-status s4xx" data-code="400">400</button>
-                      <button type="button" class="btn-pill-status s4xx" data-code="401">401</button>
-                      <button type="button" class="btn-pill-status s4xx" data-code="404">404</button>
-                      <button type="button" class="btn-pill-status s5xx" data-code="500">500</button>
+                      <input type="number" id="resp-status-code" class="hidden" min="100" max="599" placeholder="Código (ex: 418)" />
                     </div>
                   </div>
 

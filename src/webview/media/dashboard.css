@@ -984,50 +984,6 @@ body {
   border-color: rgba(239, 68, 68, 0.4);
 }
 
-.quick-status-pills {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
-.btn-pill-status {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--vscode-descriptionForeground);
-  cursor: pointer;
-  transition: all 0.12s;
-}
-
-.btn-pill-status:hover {
-  color: var(--vscode-foreground);
-  background: var(--card-hover);
-}
-
-.btn-pill-status.s2xx.active {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-  border-color: #10b981;
-}
-
-.btn-pill-status.s4xx.active {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-  border-color: #f59e0b;
-}
-
-.btn-pill-status.s5xx.active {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border-color: #ef4444;
-}
-
 .response-status-row {
   display: flex;
   align-items: flex-start;
@@ -1050,11 +1006,15 @@ body {
 .status-inputs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.status-inputs select {
+  min-width: 175px;
 }
 
 .status-inputs input {
-  width: 70px;
+  width: 80px;
   font-family: var(--font-mono);
   font-weight: 700;
   text-align: center;

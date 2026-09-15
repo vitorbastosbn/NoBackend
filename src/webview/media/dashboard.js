@@ -89,7 +89,6 @@ const el = {
   routePrefixDisplay: document.getElementById('route-prefix-display'),
   btnCopyUrl: document.getElementById('btn-copy-url'),
   btnCopyCurl: document.getElementById('btn-copy-curl'),
-  btnDeleteRoute: document.getElementById('btn-delete-route'),
 
   // Navigation: Request vs Responses
   tabNavRequest: document.getElementById('tab-nav-request'),
@@ -127,7 +126,6 @@ const el = {
   btnDeleteResponse: document.getElementById('btn-delete-response'),
   respStatusQuick: document.getElementById('resp-status-quick'),
   respStatusCode: document.getElementById('resp-status-code'),
-  quickStatusPills: document.querySelectorAll('.btn-pill-status[data-code]'),
   respDelayInput: document.getElementById('resp-delay-input'),
   quickDelayBtns: document.querySelectorAll('.btn-pill[data-delay]'),
 
@@ -383,18 +381,7 @@ function setupEventListeners() {
     });
   }
 
-  // Delete Route
-  el.btnDeleteRoute.addEventListener('click', () => {
-    const srv = getSelectedServer();
-    const route = getSelectedRoute();
-    if (srv && route && confirm(`Excluir a rota [${route.method}] ${route.path}?`)) {
-      srv.routes = srv.routes.filter((r) => r.id !== route.id);
-      state.selectedRouteId = srv.routes.length > 0 ? srv.routes[0].id : null;
-      renderRoutesList();
-      renderEditor();
-      markDirty();
-    }
-  });
+
 
   // Mode Switcher: Request vs Responses
   if (el.tabNavRequest) {
@@ -549,29 +536,31 @@ function setupEventListeners() {
   });
 
   // Status code dropdown + input
-  el.respStatusQuick.addEventListener('change', (e) => {
-    if (e.target.value !== 'custom') {
-      const code = parseInt(e.target.value, 10);
-      el.respStatusCode.value = code;
-      updateStatusCode(code);
-    }
-  });
-
-  el.respStatusCode.addEventListener('input', (e) => {
-    const code = parseInt(e.target.value, 10) || 200;
-    updateStatusCode(code);
-  });
-
-  // Quick status pills
-  if (el.quickStatusPills) {
-    el.quickStatusPills.forEach((pill) => {
-      pill.addEventListener('click', () => {
-        const code = parseInt(pill.getAttribute('data-code'), 10);
-        if (code) {
-          el.respStatusCode.value = code;
-          updateStatusCode(code);
+  if (el.respStatusQuick) {
+    el.respStatusQuick.addEventListener('change', (e) => {
+      if (e.target.value === 'custom') {
+        el.respStatusCode.classList.remove('hidden');
+        el.respStatusCode.focus();
+        el.respStatusCode.select();
+        const code = parseInt(el.respStatusCode.value, 10);
+        if (code && !isNaN(code)) {
+          updateStatusCode(code, false);
         }
-      });
+      } else {
+        el.respStatusCode.classList.add('hidden');
+        const code = parseInt(e.target.value, 10);
+        el.respStatusCode.value = code;
+        updateStatusCode(code, true);
+      }
+    });
+  }
+
+  if (el.respStatusCode) {
+    el.respStatusCode.addEventListener('input', (e) => {
+      const code = parseInt(e.target.value, 10);
+      if (!isNaN(code) && code >= 100 && code <= 599) {
+        updateStatusCode(code, false);
+      }
     });
   }
 
@@ -681,29 +670,24 @@ function switchEditorTab(tabName) {
   }
 }
 
-function updateStatusCode(code) {
+function updateStatusCode(code, syncSelect = true) {
   const resp = getSelectedResponse();
   if (resp) {
     resp.statusCode = code;
-    const opt = el.respStatusQuick.querySelector(`option[value="${code}"]`);
-    el.respStatusQuick.value = opt ? code : 'custom';
-    highlightActiveStatusPill(code);
+    if (syncSelect) {
+      const opt = el.respStatusQuick.querySelector(`option[value="${code}"]`);
+      if (opt) {
+        el.respStatusQuick.value = String(code);
+        el.respStatusCode.classList.add('hidden');
+      } else {
+        el.respStatusQuick.value = 'custom';
+        el.respStatusCode.classList.remove('hidden');
+      }
+    }
     renderResponsesTabs();
     renderRoutesList();
     markDirty();
   }
-}
-
-function highlightActiveStatusPill(code) {
-  if (!el.quickStatusPills) return;
-  el.quickStatusPills.forEach((pill) => {
-    const c = parseInt(pill.getAttribute('data-code'), 10);
-    if (c === code) {
-      pill.classList.add('active');
-    } else {
-      pill.classList.remove('active');
-    }
-  });
 }
 
 function highlightActiveDelay(delay) {
@@ -832,6 +816,12 @@ function renderEditor() {
 
   el.editorEmpty.classList.add('hidden');
   el.editorContent.classList.remove('hidden');
+
+  vscode.postMessage({
+    type: 'routeSelected',
+    routeId: route.id,
+    serverId: server.id
+  });
 
   // Set route metadata
   el.routeMethodSelect.value = route.method;
@@ -1050,12 +1040,18 @@ function renderResponseDetails() {
   cleanName = cleanName.replace(codePrefixRegex, '').trim();
   el.respNameInput.value = cleanName;
 
-  el.respStatusCode.value = resp.statusCode || 200;
+  const statusCode = resp.statusCode || 200;
+  el.respStatusCode.value = statusCode;
 
-  // Set quick dropdown & pills
-  const opt = el.respStatusQuick.querySelector(`option[value="${resp.statusCode}"]`);
-  el.respStatusQuick.value = opt ? resp.statusCode : 'custom';
-  highlightActiveStatusPill(resp.statusCode);
+  // Set quick dropdown and toggle manual input
+  const opt = el.respStatusQuick.querySelector(`option[value="${statusCode}"]`);
+  if (opt) {
+    el.respStatusQuick.value = String(statusCode);
+    el.respStatusCode.classList.add('hidden');
+  } else {
+    el.respStatusQuick.value = 'custom';
+    el.respStatusCode.classList.remove('hidden');
+  }
 
   el.respDelayInput.value = resp.delay || 0;
   highlightActiveDelay(resp.delay || 0);

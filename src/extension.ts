@@ -264,6 +264,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           await serverManager.stopServer(server.id);
         }
         config.servers = config.servers.filter((s) => s.id !== server.id);
+        DashboardPanel.closeIfServerOpen(server.id);
         await configStorage.saveConfig(config);
         vscode.window.showInformationMessage(`Servidor "${server.name}" excluído.`);
       }
@@ -283,6 +284,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const server = config.servers.find((s) => s.id === item.server.id);
         if (server) {
           server.routes = server.routes.filter((r) => r.id !== item.route.id);
+          // If the route screen is currently open, close it together
+          DashboardPanel.closeIfRouteOpen(item.route.id);
           await configStorage.saveConfig(config);
           vscode.window.showInformationMessage(`Rota "${item.route.method} ${item.route.path}" excluída.`);
         }

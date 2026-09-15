@@ -7,7 +7,7 @@
       "port": 3000,
       "prefix": "/api",
       "cors": true,
-      "enabled": false,
+      "enabled": true,
       "routes": [
         {
           "id": "route_get_users",
@@ -248,7 +248,14 @@
               },
               "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Email ou senha incorretos\"\n}"
             }
-          ]
+          ],
+          "request": {
+            "headers": {},
+            "queryParams": {
+              "page": "12"
+            },
+            "body": "{\n\"usuario\": \"teste\",\n\"senha\": \"123\" \n}"
+          }
         }
       ]
     }
