@@ -291,18 +291,31 @@ export class DashboardPanel {
     <!-- Header bar -->
     <header class="top-bar ${isNewServerInitial ? 'hidden' : ''}">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
         <div class="brand-title">NoBackend</div>
         <span id="top-server-badge" class="server-badge">Servidor</span>
       </div>
       <div class="top-actions">
-        <button id="btn-save-all" class="btn btn-success" title="Salvar todas as alterações (Ctrl+S)">
-          Salvar
+        <div id="save-status-indicator" class="save-status saved" title="Status de persistência">
+          <span class="status-dot"></span>
+          <span id="save-status-text">Salvo</span>
+        </div>
+        <button id="btn-save-all" class="btn btn-save" title="Salvar alterações no disco (Ctrl+S)">
+          <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Salvar</span>
         </button>
       </div>
     </header>
 
-    <!-- Main 2-column / 1-column workspace (Routes + Editor) -->
+    <!-- Main workspace -->
     <main class="main-layout ${isNewServerInitial ? 'hidden' : ''}" id="main-layout">
       <!-- Column 1: Routes List of current server (hidden in route-only mode) -->
       <aside class="col-routes hidden" id="col-routes">
@@ -311,10 +324,12 @@ export class DashboardPanel {
             <h3 id="routes-col-title">Rotas</h3>
             <span id="routes-count-badge" class="badge">0</span>
           </div>
-          <button id="btn-add-route" class="btn-icon" title="Adicionar Rota">➕</button>
+          <button id="btn-add-route" class="btn-icon" title="Adicionar Rota">
+            <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
         </div>
         <div class="routes-filter-box">
-          <input type="text" id="input-route-filter" placeholder="🔍 Filtrar rotas..." />
+          <input type="text" id="input-route-filter" placeholder="Filtrar rotas..." />
         </div>
         <div id="routes-list" class="routes-list">
           <!-- Populated by JS -->
@@ -324,9 +339,14 @@ export class DashboardPanel {
       <!-- Column 3: Route & Response Editor -->
       <section class="col-editor" id="col-editor">
         <div id="editor-empty" class="editor-empty-state">
-          <div class="empty-icon">📭</div>
+          <div class="empty-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </div>
           <h3>Nenhuma rota selecionada</h3>
-          <p>Crie uma nova rota na barra lateral clicando no botão ➕ do servidor.</p>
+          <p>Crie ou selecione uma rota na barra lateral para começar a configurar os mocks.</p>
         </div>
 
         <div id="editor-content" class="editor-content hidden">
@@ -341,6 +361,7 @@ export class DashboardPanel {
                   <option value="PUT">PUT</option>
                   <option value="PATCH">PATCH</option>
                   <option value="DELETE">DELETE</option>
+                  <option value="OPTIONS">OPTIONS</option>
                 </select>
               </div>
               <div class="field-group path-group">
@@ -353,105 +374,242 @@ export class DashboardPanel {
               <div class="field-group actions-group">
                 <label>&nbsp;</label>
                 <div class="meta-action-buttons">
-                  <button id="btn-copy-url" class="btn btn-outline" title="Copiar URL Completa para usar no Insomnia">
-                    📋 Copiar URL
+                  <button id="btn-copy-url" class="btn btn-outline" title="Copiar URL completa para usar no Insomnia/Postman">
+                    <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>Copiar URL</span>
                   </button>
-                  <button id="btn-delete-route" class="btn btn-danger-outline" title="Excluir Rota">
-                    🗑️
+                  <button id="btn-copy-curl" class="btn btn-outline" title="Copiar comando cURL completo">
+                    <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="4 17 10 11 4 5"></polyline>
+                      <line x1="12" y1="19" x2="20" y2="19"></line>
+                    </svg>
+                    <span>cURL</span>
+                  </button>
+                  <button id="btn-delete-route" class="btn btn-danger-outline btn-icon-only" title="Excluir Rota">
+                    <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Responses Variants Tabs -->
-          <div class="responses-section">
-            <div class="section-subhead">
-              <h4>Respostas da Rota</h4>
-              <button id="btn-add-response" class="btn btn-xs btn-outline">➕ Nova Resposta</button>
+          <!-- Segmented Navigation: Request vs Responses -->
+          <div class="editor-nav-bar">
+            <div class="nav-segment-control">
+              <button type="button" id="tab-nav-request" class="nav-tab-btn" data-target="section-request">
+                <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+                <span>Requisição (Request)</span>
+              </button>
+              <button type="button" id="tab-nav-responses" class="nav-tab-btn active" data-target="section-responses">
+                <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="17" y1="7" x2="7" y2="17"></line>
+                  <polyline points="17 17 7 17 7 7"></polyline>
+                </svg>
+                <span>Respostas (Responses)</span>
+                <span id="nav-responses-badge" class="nav-pill-count">1</span>
+              </button>
             </div>
-            <div id="responses-tabs" class="tabs-container">
-              <!-- Rendered by JS -->
+            <div class="url-preview-inline" title="URL completa deste endpoint">
+              <span class="url-preview-label">Endpoint:</span>
+              <span id="url-preview-text" class="url-preview-text">http://localhost:3000/api/exemplo</span>
             </div>
+          </div>
 
-            <!-- Active response editor form -->
-            <div class="response-editor-card">
-              <div class="card-header-row">
-                <div class="response-title-edit">
-                  <label>Identificação:</label>
-                  <input type="text" id="resp-name-input" placeholder="ex: 200 Sucesso" />
-                </div>
-                <div class="response-active-toggle">
-                  <button id="btn-set-active-resp" class="btn btn-sm btn-primary">
-                    ★ Resposta Ativa
-                  </button>
-                </div>
-                <div class="response-delete">
-                  <button id="btn-delete-response" class="btn-icon" title="Excluir esta resposta">🗑️</button>
-                </div>
+          <!-- Section 1: REQUEST SPECIFICATION -->
+          <div id="section-request" class="route-tab-section hidden">
+            <div class="card-section request-card">
+              <!-- Path Parameters detected -->
+              <div id="path-params-container" class="params-box hidden">
+                <label>Parâmetros de Rota (Path Parameters):</label>
+                <div id="path-params-list" class="param-badges-list"></div>
               </div>
 
-              <div class="response-status-row">
-                <div class="status-field">
-                  <label>Status Code:</label>
-                  <div class="status-inputs">
-                    <select id="resp-status-quick">
-                      <option value="200">200 OK</option>
-                      <option value="201">201 Created</option>
-                      <option value="204">204 No Content</option>
-                      <option value="400">400 Bad Request</option>
-                      <option value="401">401 Unauthorized</option>
-                      <option value="403">403 Forbidden</option>
-                      <option value="404">404 Not Found</option>
-                      <option value="422">422 Unprocessable Entity</option>
-                      <option value="500">500 Internal Server Error</option>
-                      <option value="custom">Outro...</option>
-                    </select>
-                    <input type="number" id="resp-status-code" min="100" max="599" value="200" />
+              <!-- Query Parameters -->
+              <div class="headers-accordion" id="req-query-accordion">
+                <div class="accordion-head" id="req-query-head">
+                  <div class="accordion-title-group">
+                    <span class="accordion-title">Query Parameters esperados</span>
+                    <span id="req-query-count" class="badge">0</span>
                   </div>
-                </div>
-
-                <div class="delay-field">
-                  <label>Latência Simulada (Delay):</label>
-                  <div class="delay-input-group">
-                    <input type="number" id="resp-delay-input" min="0" step="50" value="0" />
-                    <span class="unit">ms</span>
-                  </div>
-                  <div class="quick-delays">
-                    <button type="button" class="btn-pill" data-delay="0">0ms</button>
-                    <button type="button" class="btn-pill" data-delay="150">150ms</button>
-                    <button type="button" class="btn-pill" data-delay="500">500ms</button>
-                    <button type="button" class="btn-pill" data-delay="1000">1s</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Headers Section -->
-              <div class="headers-accordion">
-                <div class="accordion-head" id="headers-head">
-                  <span>Headers de Resposta (<span id="headers-count">1</span>)</span>
                   <span class="chevron">▼</span>
                 </div>
-                <div class="accordion-body" id="headers-body">
-                  <div id="headers-list-container" class="headers-table"></div>
-                  <button id="btn-add-header" class="btn btn-xs btn-outline">➕ Adicionar Header</button>
+                <div class="accordion-body" id="req-query-body">
+                  <div id="req-query-container" class="headers-table"></div>
+                  <button id="btn-add-query-param" class="btn btn-xs btn-outline">
+                    <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Adicionar Parâmetro</span>
+                  </button>
                 </div>
               </div>
 
-              <!-- Response Body Editor -->
+              <!-- Request Headers -->
+              <div class="headers-accordion" id="req-headers-accordion">
+                <div class="accordion-head" id="req-headers-head">
+                  <div class="accordion-title-group">
+                    <span class="accordion-title">Headers da Requisição</span>
+                    <span id="req-headers-count" class="badge">0</span>
+                  </div>
+                  <span class="chevron">▼</span>
+                </div>
+                <div class="accordion-body" id="req-headers-body">
+                  <div id="req-headers-container" class="headers-table"></div>
+                  <button id="btn-add-req-header" class="btn btn-xs btn-outline">
+                    <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Adicionar Header</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Request Body Payload (ex: for POST, PUT, PATCH) -->
               <div class="body-editor-section">
                 <div class="body-header">
-                  <label>Corpo da Resposta (Payload)</label>
+                  <label>Corpo Esperado da Requisição (Payload / Exemplo de Envio)</label>
                   <div class="body-tools">
-                    <span id="json-valid-indicator" class="valid-tag valid">JSON Válido</span>
-                    <button id="btn-format-json" class="btn btn-xs btn-outline" title="Formatar e identar JSON">
-                      🪄 Formatar JSON
+                    <span id="req-json-valid-indicator" class="valid-tag">Vazio</span>
+                    <button id="btn-format-req-json" class="btn btn-xs btn-outline" title="Formatar e identar JSON da requisição">
+                      <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                      <span>Formatar JSON</span>
                     </button>
-                    <button id="btn-template-array" class="btn btn-xs btn-ghost">Exemplo Lista</button>
-                    <button id="btn-template-object" class="btn btn-xs btn-ghost">Exemplo Objeto</button>
+                    <button id="btn-template-req-object" class="btn btn-xs btn-ghost">Exemplo Objeto</button>
+                    <button id="btn-clear-req-body" class="btn btn-xs btn-ghost" title="Limpar payload da requisição">Limpar</button>
                   </div>
                 </div>
-                <textarea id="resp-body-textarea" spellcheck="false" placeholder="Digite o JSON ou texto retornado..."></textarea>
+                <textarea id="req-body-textarea" spellcheck="false" placeholder="Exemplo do JSON esperado na requisição enviada pelo cliente..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: RESPONSES SPECIFICATION -->
+          <div id="section-responses" class="route-tab-section">
+            <div class="responses-section">
+              <div class="section-subhead">
+                <h4>Respostas da Rota</h4>
+                <button id="btn-add-response" class="btn btn-xs btn-outline" title="Adicionar nova variante de resposta">
+                  <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Nova Resposta</span>
+                </button>
+              </div>
+              <div id="responses-tabs" class="tabs-container">
+                <!-- Rendered by JS -->
+              </div>
+
+              <!-- Active response editor form -->
+              <div class="response-editor-card">
+                <div class="card-header-row">
+                  <div class="response-title-edit">
+                    <label>Identificação:</label>
+                    <input type="text" id="resp-name-input" placeholder="ex: Sucesso" />
+                  </div>
+                  <div class="response-header-actions">
+                    <button id="btn-set-active-resp" class="btn-icon btn-star-favorite" title="Favoritar como resposta ativa">
+                      <svg class="icon-svg star-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                      </svg>
+                    </button>
+                    <button id="btn-duplicate-response" class="btn-icon" title="Duplicar esta resposta">
+                      <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="8" y="8" width="14" height="14" rx="2" ry="2"></rect>
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                      </svg>
+                    </button>
+                    <button id="btn-delete-response" class="btn-icon btn-danger-icon" title="Excluir esta resposta">
+                      <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="response-status-row">
+                  <div class="status-field">
+                    <label>Status Code:</label>
+                    <div class="status-inputs">
+                      <select id="resp-status-quick">
+                        <option value="200">200 OK</option>
+                        <option value="201">201 Created</option>
+                        <option value="204">204 No Content</option>
+                        <option value="400">400 Bad Request</option>
+                        <option value="401">401 Unauthorized</option>
+                        <option value="403">403 Forbidden</option>
+                        <option value="404">404 Not Found</option>
+                        <option value="422">422 Unprocessable Entity</option>
+                        <option value="500">500 Internal Server Error</option>
+                        <option value="custom">Outro...</option>
+                      </select>
+                      <input type="number" id="resp-status-code" min="100" max="599" value="200" />
+                    </div>
+                    <!-- Quick status pills -->
+                    <div class="quick-status-pills">
+                      <button type="button" class="btn-pill-status s2xx" data-code="200">200</button>
+                      <button type="button" class="btn-pill-status s2xx" data-code="201">201</button>
+                      <button type="button" class="btn-pill-status s2xx" data-code="204">204</button>
+                      <button type="button" class="btn-pill-status s4xx" data-code="400">400</button>
+                      <button type="button" class="btn-pill-status s4xx" data-code="401">401</button>
+                      <button type="button" class="btn-pill-status s4xx" data-code="404">404</button>
+                      <button type="button" class="btn-pill-status s5xx" data-code="500">500</button>
+                    </div>
+                  </div>
+
+                  <div class="delay-field">
+                    <label>Latência Simulada (Delay):</label>
+                    <div class="delay-input-group">
+                      <input type="number" id="resp-delay-input" min="0" step="50" value="0" />
+                      <span class="unit">ms</span>
+                    </div>
+                    <div class="quick-delays">
+                      <button type="button" class="btn-pill" data-delay="0">0ms</button>
+                      <button type="button" class="btn-pill" data-delay="150">150ms</button>
+                      <button type="button" class="btn-pill" data-delay="500">500ms</button>
+                      <button type="button" class="btn-pill" data-delay="1000">1s</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Headers Section -->
+                <div class="headers-accordion" id="resp-headers-accordion">
+                  <div class="accordion-head" id="headers-head">
+                    <div class="accordion-title-group">
+                      <span class="accordion-title">Headers de Resposta</span>
+                      <span id="headers-count" class="badge">1</span>
+                    </div>
+                    <span class="chevron">▼</span>
+                  </div>
+                  <div class="accordion-body" id="headers-body">
+                    <div id="headers-list-container" class="headers-table"></div>
+                    <button id="btn-add-header" class="btn btn-xs btn-outline">
+                      <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                      <span>Adicionar Header</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Response Body Editor -->
+                <div class="body-editor-section">
+                  <div class="body-header">
+                    <label>Corpo da Resposta (Payload)</label>
+                    <div class="body-tools">
+                      <span id="json-valid-indicator" class="valid-tag valid">JSON Válido</span>
+                      <button id="btn-format-json" class="btn btn-xs btn-outline" title="Formatar e identar JSON">
+                        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                        <span>Formatar JSON</span>
+                      </button>
+                      <button id="btn-template-array" class="btn btn-xs btn-ghost">Exemplo Lista</button>
+                      <button id="btn-template-object" class="btn btn-xs btn-ghost">Exemplo Objeto</button>
+                      <button id="btn-clear-resp-body" class="btn btn-xs btn-ghost" title="Limpar corpo da resposta">Limpar</button>
+                    </div>
+                  </div>
+                  <textarea id="resp-body-textarea" spellcheck="false" placeholder="Digite o JSON ou texto retornado..."></textarea>
+                </div>
               </div>
             </div>
           </div>

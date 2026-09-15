@@ -35,11 +35,19 @@ export interface ResponseConfig {
   body: string;
 }
 
+export interface RequestConfig {
+  headers?: Record<string, string>;
+  body?: string;
+  queryParams?: Record<string, string>;
+  description?: string;
+}
+
 export interface RouteConfig {
   id: string;
   path: string;
   method: HttpMethod;
   description?: string;
+  request?: RequestConfig;
   activeResponseId: string;
   responses: ResponseConfig[];
 }

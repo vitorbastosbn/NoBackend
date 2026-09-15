@@ -219,7 +219,7 @@
       "port": 3001,
       "prefix": "",
       "cors": true,
-      "enabled": false,
+      "enabled": true,
       "routes": [
         {
           "id": "route_auth_login",
@@ -247,73 +247,6 @@
                 "Content-Type": "application/json"
               },
               "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Email ou senha incorretos\"\n}"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "srv_1789434942886",
-      "name": "Novo Servidor",
-      "port": 3002,
-      "prefix": "/api",
-      "cors": true,
-      "enabled": false,
-      "routes": [
-        {
-          "id": "route_1789434942886",
-          "path": "/status",
-          "method": "GET",
-          "description": "Status do servidor mock",
-          "activeResponseId": "resp_1789434942886",
-          "responses": [
-            {
-              "id": "resp_1789434942886",
-              "name": "200 OK",
-              "statusCode": 200,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"status\": \"online\",\n  \"server\": \"Novo Servidor\",\n  \"port\": 3002,\n  \"message\": \"NoBackend Mock Server ativo\",\n  \"timestamp\": \"2026-09-15T01:15:42.886Z\"\n}"
-            }
-          ]
-        },
-        {
-          "id": "route_1789435024490",
-          "path": "/nova-rota",
-          "method": "GET",
-          "description": "",
-          "activeResponseId": "resp_1789435024490",
-          "responses": [
-            {
-              "id": "resp_1789435024490",
-              "name": "200 OK",
-              "statusCode": 200,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"message\": \"Mock gerado com sucesso!\"\n}"
-            }
-          ]
-        },
-        {
-          "id": "route_1789435541539",
-          "path": "/nova-rota-2",
-          "method": "GET",
-          "description": "",
-          "activeResponseId": "resp_1789435541539",
-          "responses": [
-            {
-              "id": "resp_1789435541539",
-              "name": "200 OK",
-              "statusCode": 200,
-              "delay": 0,
-              "headers": {
-                "Content-Type": "application/json"
-              },
-              "body": "{\n  \"message\": \"Mock gerado com sucesso!\"\n}"
             }
           ]
         }

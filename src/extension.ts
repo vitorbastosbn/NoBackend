@@ -208,11 +208,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         path: defaultPath,
         method: 'GET',
         description: '',
+        request: {
+          headers: {},
+          queryParams: {},
+          body: ''
+        },
         activeResponseId: respId,
         responses: [
           {
             id: respId,
-            name: '200 OK',
+            name: 'Sucesso',
             statusCode: 200,
             delay: 0,
             headers: { 'Content-Type': 'application/json' },

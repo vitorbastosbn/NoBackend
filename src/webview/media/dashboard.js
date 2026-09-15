@@ -27,6 +27,16 @@ function getStatusDescription(code) {
   return HTTP_STATUS_DESCRIPTIONS[code] || '';
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Application State
 let state = {
   config: { version: '1.0.0', servers: [] },
@@ -34,18 +44,23 @@ let state = {
   selectedServerId: null,
   selectedRouteId: null,
   selectedResponseId: null,
+  activeEditorTab: 'responses', // 'request' | 'responses'
   viewMode: 'server', // 'server' (routes + editor) or 'route' (editor only)
-  filterQuery: ''
+  filterQuery: '',
+  isDirty: false,
+  // Component internal row models allowing multiple empty entries
+  responseHeadersList: [],
+  requestHeadersList: [],
+  queryParamsList: []
 };
 
-// DOM Elements
+// DOM Elements cache
 const el = {
   // Top bar
   topBar: document.querySelector('.top-bar'),
   topServerBadge: document.getElementById('top-server-badge'),
-  btnToggleRoutesCol: document.getElementById('btn-toggle-routes-col'),
-  toggleRoutesText: document.getElementById('toggle-routes-text'),
-  btnAddRouteTop: document.getElementById('btn-add-route-top'),
+  saveStatusIndicator: document.getElementById('save-status-indicator'),
+  saveStatusText: document.getElementById('save-status-text'),
   btnSaveAll: document.getElementById('btn-save-all'),
 
   // Layout & Columns
@@ -73,31 +88,62 @@ const el = {
   routePathInput: document.getElementById('route-path-input'),
   routePrefixDisplay: document.getElementById('route-prefix-display'),
   btnCopyUrl: document.getElementById('btn-copy-url'),
+  btnCopyCurl: document.getElementById('btn-copy-curl'),
   btnDeleteRoute: document.getElementById('btn-delete-route'),
 
-  // Responses
+  // Navigation: Request vs Responses
+  tabNavRequest: document.getElementById('tab-nav-request'),
+  tabNavResponses: document.getElementById('tab-nav-responses'),
+  navResponsesBadge: document.getElementById('nav-responses-badge'),
+  urlPreviewText: document.getElementById('url-preview-text'),
+
+  // Section: Request
+  sectionRequest: document.getElementById('section-request'),
+  pathParamsContainer: document.getElementById('path-params-container'),
+  pathParamsList: document.getElementById('path-params-list'),
+  reqQueryHead: document.getElementById('req-query-head'),
+  reqQueryBody: document.getElementById('req-query-body'),
+  reqQueryCount: document.getElementById('req-query-count'),
+  reqQueryContainer: document.getElementById('req-query-container'),
+  btnAddQueryParam: document.getElementById('btn-add-query-param'),
+  reqHeadersHead: document.getElementById('req-headers-head'),
+  reqHeadersBody: document.getElementById('req-headers-body'),
+  reqHeadersCount: document.getElementById('req-headers-count'),
+  reqHeadersContainer: document.getElementById('req-headers-container'),
+  btnAddReqHeader: document.getElementById('btn-add-req-header'),
+  reqBodyTextarea: document.getElementById('req-body-textarea'),
+  reqJsonValidIndicator: document.getElementById('req-json-valid-indicator'),
+  btnFormatReqJson: document.getElementById('btn-format-req-json'),
+  btnTemplateReqObject: document.getElementById('btn-template-req-object'),
+  btnClearReqBody: document.getElementById('btn-clear-req-body'),
+
+  // Section: Responses
+  sectionResponses: document.getElementById('section-responses'),
   btnAddResponse: document.getElementById('btn-add-response'),
   responsesTabs: document.getElementById('responses-tabs'),
   respNameInput: document.getElementById('resp-name-input'),
   btnSetActiveResp: document.getElementById('btn-set-active-resp'),
+  btnDuplicateResponse: document.getElementById('btn-duplicate-response'),
   btnDeleteResponse: document.getElementById('btn-delete-response'),
   respStatusQuick: document.getElementById('resp-status-quick'),
   respStatusCode: document.getElementById('resp-status-code'),
+  quickStatusPills: document.querySelectorAll('.btn-pill-status[data-code]'),
   respDelayInput: document.getElementById('resp-delay-input'),
   quickDelayBtns: document.querySelectorAll('.btn-pill[data-delay]'),
 
-  // Headers
+  // Headers (Response)
   headersHead: document.getElementById('headers-head'),
   headersBody: document.getElementById('headers-body'),
   headersCount: document.getElementById('headers-count'),
   headersListContainer: document.getElementById('headers-list-container'),
   btnAddHeader: document.getElementById('btn-add-header'),
 
-  // Body
+  // Body (Response)
   jsonValidIndicator: document.getElementById('json-valid-indicator'),
   btnFormatJson: document.getElementById('btn-format-json'),
   btnTemplateArray: document.getElementById('btn-template-array'),
   btnTemplateObject: document.getElementById('btn-template-object'),
+  btnClearRespBody: document.getElementById('btn-clear-resp-body'),
   respBodyTextarea: document.getElementById('resp-body-textarea')
 };
 
@@ -185,6 +231,8 @@ window.addEventListener('message', (event) => {
       break;
 
     case 'saveSuccess':
+      state.isDirty = false;
+      updateSaveIndicator();
       showTransientToast('Salvo com sucesso!');
       break;
   }
@@ -193,13 +241,9 @@ window.addEventListener('message', (event) => {
 function applyViewMode() {
   if (state.viewMode === 'route') {
     el.mainLayout.classList.add('route-only');
-    if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
-    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
     if (el.colRoutes) el.colRoutes.classList.add('hidden');
   } else {
     el.mainLayout.classList.remove('route-only');
-    if (el.btnToggleRoutesCol) el.btnToggleRoutesCol.classList.add('hidden');
-    if (el.btnAddRouteTop) el.btnAddRouteTop.classList.add('hidden');
     if (el.colRoutes) el.colRoutes.classList.add('hidden');
   }
 }
@@ -223,14 +267,6 @@ function updatePanelTitle(route) {
 
 // Setup Events
 function setupEventListeners() {
-  // Top actions
-  if (el.btnToggleRoutesCol) {
-    el.btnToggleRoutesCol.addEventListener('click', () => {
-      const isOnly = el.mainLayout.classList.toggle('route-only');
-      el.toggleRoutesText.textContent = isOnly ? 'Ver Rotas' : 'Ocultar Rotas';
-    });
-  }
-
   // New Server Screen events
   if (el.btnModalCancel) {
     el.btnModalCancel.addEventListener('click', () => {
@@ -259,22 +295,30 @@ function setupEventListeners() {
     }
   });
 
-  if (el.btnAddRouteTop) {
-    el.btnAddRouteTop.addEventListener('click', () => handleAddRoute());
-  }
   if (el.btnAddRoute) {
     el.btnAddRoute.addEventListener('click', () => handleAddRoute());
   }
 
+  // Save manual button (NO auto-save!)
   if (el.btnSaveAll) {
     el.btnSaveAll.addEventListener('click', () => saveConfig());
   }
 
-  // Filter
-  el.inputRouteFilter.addEventListener('input', (e) => {
-    state.filterQuery = e.target.value.toLowerCase();
-    renderRoutesList();
+  // Keyboard shortcut Ctrl+S / Cmd+S
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveConfig();
+    }
   });
+
+  // Filter
+  if (el.inputRouteFilter) {
+    el.inputRouteFilter.addEventListener('input', (e) => {
+      state.filterQuery = e.target.value.toLowerCase();
+      renderRoutesList();
+    });
+  }
 
   // Editor route fields
   el.routeMethodSelect.addEventListener('change', (e) => {
@@ -283,6 +327,7 @@ function setupEventListeners() {
       route.method = e.target.value;
       updatePanelTitle(route);
       renderRoutesList();
+      updateUrlPreview();
       markDirty();
     }
   });
@@ -297,24 +342,48 @@ function setupEventListeners() {
       route.path = pathVal;
       updatePanelTitle(route);
       renderRoutesList();
+      updatePathParameters(pathVal);
+      updateUrlPreview();
       markDirty();
     }
   });
 
+  // Copy Full URL
   el.btnCopyUrl.addEventListener('click', () => {
-    const srv = getSelectedServer();
-    const route = getSelectedRoute();
-    if (srv && route) {
-      const prefix = (srv.prefix || '').trim().replace(/\/+$/, '');
-      let rPath = route.path.trim();
-      if (!rPath.startsWith('/')) {
-        rPath = '/' + rPath;
-      }
-      const fullUrl = `http://localhost:${srv.port}${prefix}${rPath}`;
+    const fullUrl = getFullUrl();
+    if (fullUrl) {
       vscode.postMessage({ type: 'copyToClipboard', text: fullUrl });
     }
   });
 
+  // Copy cURL
+  if (el.btnCopyCurl) {
+    el.btnCopyCurl.addEventListener('click', () => {
+      const route = getSelectedRoute();
+      const url = getFullUrl();
+      if (!route || !url) return;
+
+      let curl = `curl -X ${route.method} "${url}"`;
+
+      // Include headers from Request spec if any
+      const reqHeaders = (route.request && route.request.headers) ? route.request.headers : {};
+      Object.entries(reqHeaders).forEach(([k, v]) => {
+        if (k.trim()) {
+          curl += ` \\\n  -H "${k}: ${v}"`;
+        }
+      });
+
+      // Include body from Request spec if method sends payload
+      if (['POST', 'PUT', 'PATCH'].includes(route.method) && route.request && route.request.body && route.request.body.trim()) {
+        const bodyEscaped = route.request.body.replace(/"/g, '\\"');
+        curl += ` \\\n  -d "${bodyEscaped}"`;
+      }
+
+      vscode.postMessage({ type: 'copyToClipboard', text: curl });
+    });
+  }
+
+  // Delete Route
   el.btnDeleteRoute.addEventListener('click', () => {
     const srv = getSelectedServer();
     const route = getSelectedRoute();
@@ -327,8 +396,120 @@ function setupEventListeners() {
     }
   });
 
-  // Response actions
+  // Mode Switcher: Request vs Responses
+  if (el.tabNavRequest) {
+    el.tabNavRequest.addEventListener('click', () => {
+      switchEditorTab('request');
+    });
+  }
+  if (el.tabNavResponses) {
+    el.tabNavResponses.addEventListener('click', () => {
+      switchEditorTab('responses');
+    });
+  }
+
+  // ===================== SECTION: REQUEST EVENTS =====================
+  if (el.reqQueryHead) {
+    el.reqQueryHead.addEventListener('click', () => {
+      el.reqQueryHead.classList.toggle('collapsed');
+      el.reqQueryBody.classList.toggle('collapsed');
+    });
+  }
+  if (el.btnAddQueryParam) {
+    el.btnAddQueryParam.addEventListener('click', () => {
+      state.queryParamsList.push({ id: 'qp_' + Date.now() + Math.random(), key: '', value: '' });
+      renderQueryParams();
+      markDirty();
+      focusLastRowInput(el.reqQueryContainer);
+    });
+  }
+
+  if (el.reqHeadersHead) {
+    el.reqHeadersHead.addEventListener('click', () => {
+      el.reqHeadersHead.classList.toggle('collapsed');
+      el.reqHeadersBody.classList.toggle('collapsed');
+    });
+  }
+  if (el.btnAddReqHeader) {
+    el.btnAddReqHeader.addEventListener('click', () => {
+      state.requestHeadersList.push({ id: 'rh_' + Date.now() + Math.random(), key: '', value: '' });
+      renderRequestHeaders();
+      markDirty();
+      focusLastRowInput(el.reqHeadersContainer);
+    });
+  }
+
+  if (el.reqBodyTextarea) {
+    el.reqBodyTextarea.addEventListener('input', (e) => {
+      const route = getSelectedRoute();
+      if (route) {
+        route.request = route.request || {};
+        route.request.body = e.target.value;
+        validateJson(e.target.value, el.reqJsonValidIndicator);
+        markDirty();
+      }
+    });
+  }
+
+  if (el.btnFormatReqJson) {
+    el.btnFormatReqJson.addEventListener('click', () => {
+      const val = el.reqBodyTextarea.value.trim();
+      if (!val) return;
+      try {
+        const parsed = JSON.parse(val);
+        const formatted = JSON.stringify(parsed, null, 2);
+        el.reqBodyTextarea.value = formatted;
+        const route = getSelectedRoute();
+        if (route) {
+          route.request = route.request || {};
+          route.request.body = formatted;
+          validateJson(formatted, el.reqJsonValidIndicator);
+          markDirty();
+        }
+      } catch {
+        vscode.postMessage({ type: 'notify', level: 'warning', text: 'Não foi possível formatar: JSON contém erros de sintaxe.' });
+      }
+    });
+  }
+
+  if (el.btnTemplateReqObject) {
+    el.btnTemplateReqObject.addEventListener('click', () => {
+      const sample = JSON.stringify({
+        name: "João Silva",
+        email: "joao.silva@exemplo.com",
+        role: "developer"
+      }, null, 2);
+      el.reqBodyTextarea.value = sample;
+      const route = getSelectedRoute();
+      if (route) {
+        route.request = route.request || {};
+        route.request.body = sample;
+        validateJson(sample, el.reqJsonValidIndicator);
+        markDirty();
+      }
+    });
+  }
+
+  if (el.btnClearReqBody) {
+    el.btnClearReqBody.addEventListener('click', () => {
+      el.reqBodyTextarea.value = '';
+      const route = getSelectedRoute();
+      if (route) {
+        route.request = route.request || {};
+        route.request.body = '';
+        validateJson('', el.reqJsonValidIndicator);
+        markDirty();
+      }
+    });
+  }
+
+  // ===================== SECTION: RESPONSES EVENTS =====================
   el.btnAddResponse.addEventListener('click', () => handleAddResponse());
+
+  if (el.btnDuplicateResponse) {
+    el.btnDuplicateResponse.addEventListener('click', () => handleDuplicateResponse());
+  }
+
   el.respNameInput.addEventListener('input', (e) => {
     const resp = getSelectedResponse();
     if (resp) {
@@ -338,10 +519,12 @@ function setupEventListeners() {
     }
   });
 
+  // Star favorite toggle
   el.btnSetActiveResp.addEventListener('click', () => {
     const route = getSelectedRoute();
     if (route && state.selectedResponseId) {
       route.activeResponseId = state.selectedResponseId;
+      renderStarButton();
       renderResponsesTabs();
       renderRoutesList();
       markDirty();
@@ -379,11 +562,25 @@ function setupEventListeners() {
     updateStatusCode(code);
   });
 
+  // Quick status pills
+  if (el.quickStatusPills) {
+    el.quickStatusPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const code = parseInt(pill.getAttribute('data-code'), 10);
+        if (code) {
+          el.respStatusCode.value = code;
+          updateStatusCode(code);
+        }
+      });
+    });
+  }
+
   // Latency / Delay
   el.respDelayInput.addEventListener('input', (e) => {
     const resp = getSelectedResponse();
     if (resp) {
       resp.delay = Math.max(0, parseInt(e.target.value, 10) || 0);
+      highlightActiveDelay(resp.delay);
       markDirty();
     }
   });
@@ -395,35 +592,31 @@ function setupEventListeners() {
       const resp = getSelectedResponse();
       if (resp) {
         resp.delay = delay;
+        highlightActiveDelay(delay);
         markDirty();
       }
     });
   });
 
-  // Headers
+  // Response Headers
   el.headersHead.addEventListener('click', () => {
     el.headersHead.classList.toggle('collapsed');
     el.headersBody.classList.toggle('collapsed');
   });
 
   el.btnAddHeader.addEventListener('click', () => {
-    const resp = getSelectedResponse();
-    if (resp) {
-      if (!resp.headers) {
-        resp.headers = {};
-      }
-      resp.headers['X-Custom-Header'] = 'example-value';
-      renderHeaders();
-      markDirty();
-    }
+    state.responseHeadersList.push({ id: 'rh_' + Date.now() + Math.random(), key: '', value: '' });
+    renderHeaders();
+    markDirty();
+    focusLastRowInput(el.headersListContainer);
   });
 
-  // Body editor
+  // Response Body editor
   el.respBodyTextarea.addEventListener('input', (e) => {
     const resp = getSelectedResponse();
     if (resp) {
       resp.body = e.target.value;
-      validateJson(e.target.value);
+      validateJson(e.target.value, el.jsonValidIndicator);
       markDirty();
     }
   });
@@ -438,7 +631,7 @@ function setupEventListeners() {
       const resp = getSelectedResponse();
       if (resp) {
         resp.body = formatted;
-        validateJson(formatted);
+        validateJson(formatted, el.jsonValidIndicator);
         markDirty();
       }
     } catch {
@@ -463,13 +656,29 @@ function setupEventListeners() {
     setBodyTemplate(sample);
   });
 
-  // Keyboard shortcut Ctrl+S / Cmd+S
-  window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      saveConfig();
-    }
-  });
+  if (el.btnClearRespBody) {
+    el.btnClearRespBody.addEventListener('click', () => {
+      setBodyTemplate('');
+    });
+  }
+}
+
+function switchEditorTab(tabName) {
+  state.activeEditorTab = tabName;
+  if (tabName === 'request') {
+    el.tabNavRequest.classList.add('active');
+    el.tabNavResponses.classList.remove('active');
+    el.sectionRequest.classList.remove('hidden');
+    el.sectionResponses.classList.add('hidden');
+    renderRequestSection();
+  } else {
+    el.tabNavResponses.classList.add('active');
+    el.tabNavRequest.classList.remove('active');
+    el.sectionResponses.classList.remove('hidden');
+    el.sectionRequest.classList.add('hidden');
+    renderResponsesTabs();
+    renderResponseDetails();
+  }
 }
 
 function updateStatusCode(code) {
@@ -478,10 +687,35 @@ function updateStatusCode(code) {
     resp.statusCode = code;
     const opt = el.respStatusQuick.querySelector(`option[value="${code}"]`);
     el.respStatusQuick.value = opt ? code : 'custom';
+    highlightActiveStatusPill(code);
     renderResponsesTabs();
     renderRoutesList();
     markDirty();
   }
+}
+
+function highlightActiveStatusPill(code) {
+  if (!el.quickStatusPills) return;
+  el.quickStatusPills.forEach((pill) => {
+    const c = parseInt(pill.getAttribute('data-code'), 10);
+    if (c === code) {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+}
+
+function highlightActiveDelay(delay) {
+  if (!el.quickDelayBtns) return;
+  el.quickDelayBtns.forEach((btn) => {
+    const d = parseInt(btn.getAttribute('data-delay'), 10);
+    if (d === delay) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
 }
 
 function setBodyTemplate(sample) {
@@ -489,25 +723,26 @@ function setBodyTemplate(sample) {
   const resp = getSelectedResponse();
   if (resp) {
     resp.body = sample;
-    validateJson(sample);
+    validateJson(sample, el.jsonValidIndicator);
     markDirty();
   }
 }
 
-function validateJson(text) {
-  const trimmed = text.trim();
+function validateJson(text, indicatorEl) {
+  if (!indicatorEl) return;
+  const trimmed = (text || '').trim();
   if (!trimmed) {
-    el.jsonValidIndicator.textContent = 'Vazio';
-    el.jsonValidIndicator.className = 'valid-tag';
+    indicatorEl.textContent = 'Vazio';
+    indicatorEl.className = 'valid-tag';
     return;
   }
   try {
     JSON.parse(trimmed);
-    el.jsonValidIndicator.textContent = 'JSON Válido';
-    el.jsonValidIndicator.className = 'valid-tag valid';
+    indicatorEl.textContent = 'JSON Válido';
+    indicatorEl.className = 'valid-tag valid';
   } catch (err) {
-    el.jsonValidIndicator.textContent = 'JSON Inválido';
-    el.jsonValidIndicator.className = 'valid-tag invalid';
+    indicatorEl.textContent = 'JSON Inválido';
+    indicatorEl.className = 'valid-tag invalid';
   }
 }
 
@@ -516,6 +751,7 @@ function renderAll() {
   renderHeader();
   renderRoutesList();
   renderEditor();
+  updateSaveIndicator();
 }
 
 function renderHeader() {
@@ -526,7 +762,7 @@ function renderHeader() {
   }
 
   if (el.topServerBadge) {
-    el.topServerBadge.innerHTML = `${server.name} <span class="badge-port">:${server.port}</span>`;
+    el.topServerBadge.innerHTML = `${escapeHtml(server.name)} <span class="badge-port">:${server.port}</span>`;
   }
 
   if (el.routesColTitle) {
@@ -558,7 +794,8 @@ function renderRoutesList() {
     const statusText = getStatusDescription(statusCode);
 
     let statusClass = 's2xx';
-    if (statusCode >= 400 && statusCode < 500) statusClass = 's4xx';
+    if (statusCode >= 300 && statusCode < 400) statusClass = 's3xx';
+    else if (statusCode >= 400 && statusCode < 500) statusClass = 's4xx';
     else if (statusCode >= 500) statusClass = 's5xx';
 
     const card = document.createElement('div');
@@ -566,12 +803,13 @@ function renderRoutesList() {
     card.innerHTML = `
       <div class="route-card-left">
         <span class="route-method-name ${route.method}">${route.method}</span>
-        <span class="route-path-text" title="${route.path}">${route.path}</span>
+        <span class="route-path-text" title="${escapeHtml(route.path)}">${escapeHtml(route.path)}</span>
       </div>
       <span class="status-pill ${statusClass}">${statusCode} ${statusText}</span>
     `;
 
     card.addEventListener('click', () => {
+      syncCurrentListsToModel();
       state.selectedRouteId = route.id;
       state.selectedResponseId = route.activeResponseId || (route.responses[0] && route.responses[0].id);
       renderRoutesList();
@@ -600,11 +838,148 @@ function renderEditor() {
   el.routePathInput.value = route.path;
   el.routePrefixDisplay.textContent = server.prefix ? server.prefix : ': ' + server.port;
 
-  // Render responses tabs
-  renderResponsesTabs();
-  renderResponseDetails();
+  updateUrlPreview();
+  updatePathParameters(route.path);
+
+  // Initialize request & response models
+  route.request = route.request || { headers: {}, queryParams: {}, body: '' };
+
+  state.requestHeadersList = Object.entries(route.request.headers || {}).map(([k, v], i) => ({
+    id: 'req_h_' + i + '_' + Date.now(),
+    key: k,
+    value: v
+  }));
+
+  state.queryParamsList = Object.entries(route.request.queryParams || {}).map(([k, v], i) => ({
+    id: 'qp_' + i + '_' + Date.now(),
+    key: k,
+    value: v
+  }));
+
+  const resp = getSelectedResponse();
+  if (resp) {
+    state.responseHeadersList = Object.entries(resp.headers || {}).map(([k, v], i) => ({
+      id: 'rh_' + i + '_' + Date.now(),
+      key: k,
+      value: v
+    }));
+  } else {
+    state.responseHeadersList = [];
+  }
+
+  // Render current tab
+  if (state.activeEditorTab === 'request') {
+    switchEditorTab('request');
+  } else {
+    switchEditorTab('responses');
+  }
 }
 
+// Render Section: REQUEST
+function renderRequestSection() {
+  const route = getSelectedRoute();
+  if (!route) return;
+
+  route.request = route.request || { headers: {}, queryParams: {}, body: '' };
+
+  renderQueryParams();
+  renderRequestHeaders();
+
+  if (el.reqBodyTextarea) {
+    el.reqBodyTextarea.value = route.request.body || '';
+    validateJson(route.request.body || '', el.reqJsonValidIndicator);
+  }
+}
+
+function renderQueryParams() {
+  if (!el.reqQueryContainer || !el.reqQueryCount) return;
+
+  el.reqQueryCount.textContent = state.queryParamsList.length.toString();
+  el.reqQueryContainer.innerHTML = '';
+
+  state.queryParamsList.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = 'header-row';
+    row.innerHTML = `
+      <input type="text" class="hdr-key" value="${escapeHtml(item.key)}" placeholder="Parâmetro (ex: limit, page, filter)" />
+      <input type="text" class="hdr-val" value="${escapeHtml(item.value)}" placeholder="Valor ou exemplo (ex: 10)" />
+      <button class="btn-icon btn-del-hdr" title="Remover parâmetro">
+        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    `;
+
+    const keyInput = row.querySelector('.hdr-key');
+    const valInput = row.querySelector('.hdr-val');
+    const delBtn = row.querySelector('.btn-del-hdr');
+
+    keyInput.addEventListener('input', (e) => {
+      item.key = e.target.value;
+      syncQueryParamsToModel();
+      markDirty();
+    });
+
+    valInput.addEventListener('input', (e) => {
+      item.value = e.target.value;
+      syncQueryParamsToModel();
+      markDirty();
+    });
+
+    delBtn.addEventListener('click', () => {
+      state.queryParamsList = state.queryParamsList.filter((x) => x.id !== item.id);
+      syncQueryParamsToModel();
+      renderQueryParams();
+      markDirty();
+    });
+
+    el.reqQueryContainer.appendChild(row);
+  });
+}
+
+function renderRequestHeaders() {
+  if (!el.reqHeadersContainer || !el.reqHeadersCount) return;
+
+  el.reqHeadersCount.textContent = state.requestHeadersList.length.toString();
+  el.reqHeadersContainer.innerHTML = '';
+
+  state.requestHeadersList.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = 'header-row';
+    row.innerHTML = `
+      <input type="text" class="hdr-key" value="${escapeHtml(item.key)}" placeholder="Header (ex: Authorization, Content-Type)" />
+      <input type="text" class="hdr-val" value="${escapeHtml(item.value)}" placeholder="Valor (ex: Bearer token123)" />
+      <button class="btn-icon btn-del-hdr" title="Remover header">
+        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    `;
+
+    const keyInput = row.querySelector('.hdr-key');
+    const valInput = row.querySelector('.hdr-val');
+    const delBtn = row.querySelector('.btn-del-hdr');
+
+    keyInput.addEventListener('input', (e) => {
+      item.key = e.target.value;
+      syncRequestHeadersToModel();
+      markDirty();
+    });
+
+    valInput.addEventListener('input', (e) => {
+      item.value = e.target.value;
+      syncRequestHeadersToModel();
+      markDirty();
+    });
+
+    delBtn.addEventListener('click', () => {
+      state.requestHeadersList = state.requestHeadersList.filter((x) => x.id !== item.id);
+      syncRequestHeadersToModel();
+      renderRequestHeaders();
+      markDirty();
+    });
+
+    el.reqHeadersContainer.appendChild(row);
+  });
+}
+
+// Render Section: RESPONSES
 function renderResponsesTabs() {
   const route = getSelectedRoute();
   if (!route) return;
@@ -615,20 +990,47 @@ function renderResponsesTabs() {
     state.selectedResponseId = route.activeResponseId || route.responses[0].id;
   }
 
+  if (el.navResponsesBadge) {
+    el.navResponsesBadge.textContent = route.responses.length.toString();
+  }
+
   route.responses.forEach((resp) => {
     const isActive = resp.id === route.activeResponseId;
     const isSelected = resp.id === state.selectedResponseId;
     const statusDesc = getStatusDescription(resp.statusCode);
 
+    let statusClass = 's2xx';
+    if (resp.statusCode >= 300 && resp.statusCode < 400) statusClass = 's3xx';
+    else if (resp.statusCode >= 400 && resp.statusCode < 500) statusClass = 's4xx';
+    else if (resp.statusCode >= 500) statusClass = 's5xx';
+
+    // Intelligently strip leading status code from name if user wrote e.g. "200 Sucesso" or "200 OK"
+    let cleanName = (resp.name || '').trim();
+    const codePrefixRegex = new RegExp(`^${resp.statusCode}\\s*[-:]?\\s*`, 'i');
+    cleanName = cleanName.replace(codePrefixRegex, '').trim();
+    if (!cleanName) {
+      cleanName = statusDesc || 'Resposta';
+    }
+
     const tab = document.createElement('div');
     tab.className = `resp-tab ${isSelected ? 'active' : ''}`;
     tab.innerHTML = `
-      ${isActive ? '<span class="active-star">★</span>' : ''}
-      <span>${resp.statusCode} ${resp.name || statusDesc}</span>
+      <span class="tab-status-pill ${statusClass}">${resp.statusCode}</span>
+      <span class="tab-label-text">${escapeHtml(cleanName)}</span>
+      ${isActive ? '<span class="tab-star-indicator" title="Resposta Ativa">★</span>' : ''}
     `;
 
     tab.addEventListener('click', () => {
+      syncResponseHeadersToModel();
       state.selectedResponseId = resp.id;
+      const r = getSelectedResponse();
+      if (r) {
+        state.responseHeadersList = Object.entries(r.headers || {}).map(([k, v], i) => ({
+          id: 'rh_' + i + '_' + Date.now(),
+          key: k,
+          value: v
+        }));
+      }
       renderResponsesTabs();
       renderResponseDetails();
     });
@@ -642,78 +1044,111 @@ function renderResponseDetails() {
   const resp = getSelectedResponse();
   if (!route || !resp) return;
 
-  el.respNameInput.value = resp.name || '';
+  // Set name (clean display without repeated status code)
+  let cleanName = (resp.name || '').trim();
+  const codePrefixRegex = new RegExp(`^${resp.statusCode}\\s*[-:]?\\s*`, 'i');
+  cleanName = cleanName.replace(codePrefixRegex, '').trim();
+  el.respNameInput.value = cleanName;
+
   el.respStatusCode.value = resp.statusCode || 200;
 
-  // Set quick dropdown
+  // Set quick dropdown & pills
   const opt = el.respStatusQuick.querySelector(`option[value="${resp.statusCode}"]`);
   el.respStatusQuick.value = opt ? resp.statusCode : 'custom';
+  highlightActiveStatusPill(resp.statusCode);
 
   el.respDelayInput.value = resp.delay || 0;
+  highlightActiveDelay(resp.delay || 0);
+
   el.respBodyTextarea.value = resp.body || '';
 
-  // Active button appearance
-  const isCurrentlyActive = resp.id === route.activeResponseId;
-  if (isCurrentlyActive) {
-    el.btnSetActiveResp.className = 'btn btn-sm btn-success';
-    el.btnSetActiveResp.innerHTML = '★ Resposta Ativa';
-  } else {
-    el.btnSetActiveResp.className = 'btn btn-sm btn-outline';
-    el.btnSetActiveResp.innerHTML = 'Definir como Ativa';
-  }
-
-  validateJson(resp.body || '');
+  renderStarButton();
+  validateJson(resp.body || '', el.jsonValidIndicator);
   renderHeaders();
+}
+
+function renderStarButton() {
+  const route = getSelectedRoute();
+  const resp = getSelectedResponse();
+  if (!route || !resp || !el.btnSetActiveResp) return;
+
+  const isActive = resp.id === route.activeResponseId;
+  if (isActive) {
+    el.btnSetActiveResp.className = 'btn-icon btn-star-favorite active';
+    el.btnSetActiveResp.title = 'Resposta padrão ativa (favoritada)';
+    el.btnSetActiveResp.innerHTML = `
+      <svg class="icon-svg star-icon active" width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+      </svg>
+    `;
+  } else {
+    el.btnSetActiveResp.className = 'btn-icon btn-star-favorite';
+    el.btnSetActiveResp.title = 'Favoritar / Definir como resposta ativa';
+    el.btnSetActiveResp.innerHTML = `
+      <svg class="icon-svg star-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+      </svg>
+    `;
+  }
 }
 
 function renderHeaders() {
   const resp = getSelectedResponse();
   if (!resp) return;
 
-  if (!resp.headers) {
-    resp.headers = {};
-  }
-
-  const entries = Object.entries(resp.headers);
-  el.headersCount.textContent = entries.length.toString();
+  el.headersCount.textContent = state.responseHeadersList.length.toString();
   el.headersListContainer.innerHTML = '';
 
-  entries.forEach(([key, value]) => {
+  state.responseHeadersList.forEach((item) => {
     const row = document.createElement('div');
     row.className = 'header-row';
     row.innerHTML = `
-      <input type="text" class="hdr-key" value="${key}" placeholder="Header (ex: Content-Type)" />
-      <input type="text" class="hdr-val" value="${value}" placeholder="Valor (ex: application/json)" />
-      <button class="btn-icon btn-del-hdr" title="Remover header">✕</button>
+      <input type="text" class="hdr-key" value="${escapeHtml(item.key)}" placeholder="Header (ex: Content-Type, Cache-Control)" />
+      <input type="text" class="hdr-val" value="${escapeHtml(item.value)}" placeholder="Valor (ex: application/json)" />
+      <button class="btn-icon btn-del-hdr" title="Remover header">
+        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
     `;
 
     const keyInput = row.querySelector('.hdr-key');
     const valInput = row.querySelector('.hdr-val');
     const delBtn = row.querySelector('.btn-del-hdr');
 
-    keyInput.addEventListener('change', (e) => {
-      const newKey = e.target.value.trim();
-      if (newKey && newKey !== key) {
-        delete resp.headers[key];
-        resp.headers[newKey] = valInput.value;
-        renderHeaders();
-        markDirty();
-      }
+    keyInput.addEventListener('input', (e) => {
+      item.key = e.target.value;
+      syncResponseHeadersToModel();
+      markDirty();
     });
 
-    valInput.addEventListener('change', (e) => {
-      resp.headers[keyInput.value.trim()] = e.target.value;
+    valInput.addEventListener('input', (e) => {
+      item.value = e.target.value;
+      syncResponseHeadersToModel();
       markDirty();
     });
 
     delBtn.addEventListener('click', () => {
-      delete resp.headers[key];
+      state.responseHeadersList = state.responseHeadersList.filter((x) => x.id !== item.id);
+      syncResponseHeadersToModel();
       renderHeaders();
       markDirty();
     });
 
     el.headersListContainer.appendChild(row);
   });
+}
+
+function focusLastRowInput(containerEl) {
+  if (!containerEl) return;
+  setTimeout(() => {
+    const rows = containerEl.querySelectorAll('.header-row');
+    if (rows.length > 0) {
+      const lastRow = rows[rows.length - 1];
+      const keyInput = lastRow.querySelector('.hdr-key');
+      if (keyInput) {
+        keyInput.focus();
+      }
+    }
+  }, 50);
 }
 
 // Helpers
@@ -733,6 +1168,91 @@ function getSelectedResponse() {
   return route.responses.find((r) => r.id === state.selectedResponseId) || route.responses[0];
 }
 
+function getFullUrl() {
+  const srv = getSelectedServer();
+  const route = getSelectedRoute();
+  if (!srv || !route) return '';
+  const prefix = (srv.prefix || '').trim().replace(/\/+$/, '');
+  let rPath = (route.path || '').trim();
+  if (!rPath.startsWith('/')) {
+    rPath = '/' + rPath;
+  }
+  return `http://localhost:${srv.port}${prefix}${rPath}`;
+}
+
+function updateUrlPreview() {
+  if (el.urlPreviewText) {
+    el.urlPreviewText.textContent = getFullUrl();
+  }
+}
+
+function updatePathParameters(path) {
+  if (!el.pathParamsContainer || !el.pathParamsList) return;
+  const matches = (path || '').match(/:([a-zA-Z0-9_]+)/g);
+  if (matches && matches.length > 0) {
+    el.pathParamsContainer.classList.remove('hidden');
+    el.pathParamsList.innerHTML = '';
+    const uniqueParams = [...new Set(matches)];
+    uniqueParams.forEach((param) => {
+      const badge = document.createElement('span');
+      badge.className = 'param-badge';
+      badge.textContent = param;
+      badge.title = `Parâmetro de URL '${param}' disponível para interpolação nos mocks`;
+      el.pathParamsList.appendChild(badge);
+    });
+  } else {
+    el.pathParamsContainer.classList.add('hidden');
+    el.pathParamsList.innerHTML = '';
+  }
+}
+
+function syncResponseHeadersToModel() {
+  const resp = getSelectedResponse();
+  if (!resp) return;
+  const map = {};
+  state.responseHeadersList.forEach((item) => {
+    const k = (item.key || '').trim();
+    if (k) {
+      map[k] = item.value || '';
+    }
+  });
+  resp.headers = map;
+}
+
+function syncRequestHeadersToModel() {
+  const route = getSelectedRoute();
+  if (!route) return;
+  route.request = route.request || {};
+  const map = {};
+  state.requestHeadersList.forEach((item) => {
+    const k = (item.key || '').trim();
+    if (k) {
+      map[k] = item.value || '';
+    }
+  });
+  route.request.headers = map;
+}
+
+function syncQueryParamsToModel() {
+  const route = getSelectedRoute();
+  if (!route) return;
+  route.request = route.request || {};
+  const map = {};
+  state.queryParamsList.forEach((item) => {
+    const k = (item.key || '').trim();
+    if (k) {
+      map[k] = item.value || '';
+    }
+  });
+  route.request.queryParams = map;
+}
+
+function syncCurrentListsToModel() {
+  syncResponseHeadersToModel();
+  syncRequestHeadersToModel();
+  syncQueryParamsToModel();
+}
+
 function handleAddRoute() {
   const server = getSelectedServer();
   if (!server) return;
@@ -744,11 +1264,16 @@ function handleAddRoute() {
     path: '/nova-rota',
     method: 'GET',
     description: '',
+    request: {
+      headers: {},
+      queryParams: {},
+      body: ''
+    },
     activeResponseId: respId,
     responses: [
       {
         id: respId,
-        name: '200 OK',
+        name: 'Sucesso',
         statusCode: 200,
         delay: 0,
         headers: { 'Content-Type': 'application/json' },
@@ -761,10 +1286,10 @@ function handleAddRoute() {
   state.selectedRouteId = newId;
   state.selectedResponseId = respId;
 
-  // If in route-only mode, make sure editor is visible
   renderRoutesList();
   renderEditor();
   markDirty();
+  focusRoutePathInput();
 }
 
 function handleAddResponse() {
@@ -774,7 +1299,7 @@ function handleAddResponse() {
   const respId = 'resp_' + Date.now();
   const newResp = {
     id: respId,
-    name: '400 Bad Request',
+    name: 'Erro de Requisição',
     statusCode: 400,
     delay: 0,
     headers: { 'Content-Type': 'application/json' },
@@ -784,22 +1309,73 @@ function handleAddResponse() {
   route.responses.push(newResp);
   state.selectedResponseId = respId;
 
+  state.responseHeadersList = Object.entries(newResp.headers).map(([k, v], i) => ({
+    id: 'rh_' + i + '_' + Date.now(),
+    key: k,
+    value: v
+  }));
+
   renderResponsesTabs();
   renderResponseDetails();
   markDirty();
 }
 
-// Auto-save debouncing & save triggering
-let saveTimeout = null;
+function handleDuplicateResponse() {
+  const route = getSelectedRoute();
+  const resp = getSelectedResponse();
+  if (!route || !resp) return;
+
+  syncResponseHeadersToModel();
+
+  const respId = 'resp_' + Date.now();
+  let baseName = (resp.name || '').trim();
+  const codePrefixRegex = new RegExp(`^${resp.statusCode}\\s*[-:]?\\s*`, 'i');
+  baseName = baseName.replace(codePrefixRegex, '').trim() || getStatusDescription(resp.statusCode);
+
+  const clonedResp = {
+    id: respId,
+    name: `${baseName} (Cópia)`,
+    statusCode: resp.statusCode,
+    delay: resp.delay || 0,
+    headers: { ...(resp.headers || {}) },
+    body: resp.body || ''
+  };
+
+  route.responses.push(clonedResp);
+  state.selectedResponseId = respId;
+
+  state.responseHeadersList = Object.entries(clonedResp.headers).map(([k, v], i) => ({
+    id: 'rh_' + i + '_' + Date.now(),
+    key: k,
+    value: v
+  }));
+
+  renderResponsesTabs();
+  renderResponseDetails();
+  markDirty();
+}
+
+// Dirty state tracking (Manual saving ONLY!)
 function markDirty() {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    saveConfig();
-  }, 800);
+  state.isDirty = true;
+  updateSaveIndicator();
+}
+
+function updateSaveIndicator() {
+  if (state.isDirty) {
+    if (el.btnSaveAll) el.btnSaveAll.classList.add('dirty');
+    if (el.saveStatusIndicator) el.saveStatusIndicator.className = 'save-status unsaved';
+    if (el.saveStatusText) el.saveStatusText.textContent = 'Não salvo (Ctrl+S)';
+  } else {
+    if (el.btnSaveAll) el.btnSaveAll.classList.remove('dirty');
+    if (el.saveStatusIndicator) el.saveStatusIndicator.className = 'save-status saved';
+    if (el.saveStatusText) el.saveStatusText.textContent = 'Salvo';
+  }
 }
 
 function saveConfig() {
-  clearTimeout(saveTimeout);
+  syncCurrentListsToModel();
+
   vscode.postMessage({
     type: 'saveConfig',
     config: state.config
@@ -808,20 +1384,25 @@ function saveConfig() {
 
 function showTransientToast(text) {
   const btn = el.btnSaveAll;
+  if (!btn) return;
   const origHtml = btn.innerHTML;
-  btn.innerHTML = `✓ ${text}`;
+  btn.innerHTML = `
+    <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <span>${text}</span>
+  `;
   btn.style.background = '#10b981';
+  btn.style.borderColor = '#10b981';
   setTimeout(() => {
     btn.innerHTML = origHtml;
     btn.style.background = '';
-  }, 1500);
+    btn.style.borderColor = '';
+  }, 1800);
 }
 
 // New Server Screen Management
 function openNewServerScreen() {
   if (!el.newServerScreen) return;
 
-  // Calculate next recommended port
   const existingPorts = (state.config.servers || []).map((s) => Number(s.port));
   let nextPort = 3000;
   while (existingPorts.includes(nextPort)) {
@@ -908,7 +1489,6 @@ function handleSaveServerScreen() {
   }
   state.config.servers.push(newServer);
 
-  // Send message to extension host to save configuration, show confirmation and close the screen
   vscode.postMessage({
     type: 'saveNewServer',
     config: state.config,
@@ -916,4 +1496,3 @@ function handleSaveServerScreen() {
     port
   });
 }
-
